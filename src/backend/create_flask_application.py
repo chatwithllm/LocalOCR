@@ -14,7 +14,7 @@ import hashlib
 import logging
 from functools import wraps
 
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request, g, send_from_directory
 
 from src.backend.initialize_database_schema import (
     create_db_engine, create_session_factory, initialize_database, User
@@ -87,7 +87,16 @@ def register_error_handlers(app):
 
     @app.errorhandler(404)
     def not_found(e):
+        # Serve the frontend for the root path; return JSON for API paths
         return jsonify({"error": "Not found"}), 404
+
+    @app.route("/")
+    @app.route("/dashboard")
+    def serve_frontend():
+        """Serve the web dashboard."""
+        import os
+        frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+        return send_from_directory(frontend_dir, "index.html")
 
     @app.errorhandler(500)
     def internal_error(e):

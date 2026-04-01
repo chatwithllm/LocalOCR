@@ -9,7 +9,7 @@ No rate limits — always available as long as Ollama container is running.
 
 Endpoint: http://ollama:11434/api/generate
 Target Speed: <15 seconds per receipt
-Model: llava:7b
+Model: configurable via OLLAMA_MODEL (default: llava:7b)
 """
 
 import os
@@ -22,6 +22,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://ollama:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llava:7b")
 
 # Same prompt as Gemini for consistent output format
 RECEIPT_EXTRACTION_PROMPT = """
@@ -78,7 +79,7 @@ def extract_receipt_via_ollama(image_path: str) -> dict:
         image_base64 = base64.b64encode(f.read()).decode("utf-8")
 
     payload = {
-        "model": "llava:7b",
+        "model": OLLAMA_MODEL,
         "prompt": RECEIPT_EXTRACTION_PROMPT,
         "images": [image_base64],
         "stream": False,
@@ -88,12 +89,12 @@ def extract_receipt_via_ollama(image_path: str) -> dict:
         },
     }
 
-    logger.info("Sending receipt to Ollama LLaVA for OCR...")
+    logger.info(f"Sending receipt to Ollama model '{OLLAMA_MODEL}' for OCR...")
 
     response = requests.post(
         f"{OLLAMA_ENDPOINT}/api/generate",
         json=payload,
-        timeout=60,  # Ollama can be slow (5-15 sec)
+        timeout=int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180")),
     )
     response.raise_for_status()
 
@@ -138,43 +139,45 @@ def check_ollama_health() -> bool:
         return False
 
 
-def is_model_available(model_name: str = "llava:7b") -> bool:
+def is_model_available(model_name: str = None) -> bool:
     """Check if a specific model is downloaded in Ollama."""
+    model_name = model_name or OLLAMA_MODEL
     try:
         response = requests.get(f"{OLLAMA_ENDPOINT}/api/tags", timeout=5)
         if response.status_code == 200:
             models = response.json().get("models", [])
-            return any(m.get("name", "").startswith(model_name.split(":")[0])
+            return any(m.get("name", "") == model_name or m.get("name", "").startswith(model_name.split(":")[0])
                        for m in models)
     except requests.RequestException:
         pass
     return False
 
 
-def pull_llava_model():
-    """Pull the LLaVA model if not already downloaded."""
-    if is_model_available():
-        logger.info("LLaVA model already available.")
+def pull_ollama_model(model_name: str = None):
+    """Pull the configured Ollama model if not already downloaded."""
+    model_name = model_name or OLLAMA_MODEL
+    if is_model_available(model_name):
+        logger.info(f"Ollama model already available: {model_name}")
         return True
 
-    logger.info("Pulling LLaVA model (this may take several minutes)...")
+    logger.info(f"Pulling Ollama model '{model_name}' (this may take several minutes)...")
     try:
         response = requests.post(
             f"{OLLAMA_ENDPOINT}/api/pull",
-            json={"name": "llava:7b"},
-            timeout=600,  # Model download can take minutes
+            json={"name": model_name},
+            timeout=600,
             stream=True,
         )
         response.raise_for_status()
         for line in response.iter_lines():
             if line:
                 status = json.loads(line).get("status", "")
-                if "pulling" in status or "success" in status:
+                if status:
                     logger.info(f"  Ollama: {status}")
-        logger.info("LLaVA model pulled successfully.")
+        logger.info(f"Ollama model pulled successfully: {model_name}")
         return True
     except Exception as e:
-        logger.error(f"Failed to pull LLaVA model: {e}")
+        logger.error(f"Failed to pull Ollama model '{model_name}': {e}")
         return False
 
 
@@ -190,7 +193,7 @@ if __name__ == "__main__":
     logger.info(f"Ollama health: {'✅ OK' if healthy else '❌ FAILED'}")
 
     model_ready = is_model_available()
-    logger.info(f"LLaVA model: {'✅ Available' if model_ready else '❌ Not downloaded'}")
+    logger.info(f"Ollama model ({OLLAMA_MODEL}): {'✅ Available' if model_ready else '❌ Not downloaded'}")
 
     if len(sys.argv) >= 2 and healthy and model_ready:
         result = extract_receipt_via_ollama(sys.argv[1])

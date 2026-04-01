@@ -12,6 +12,9 @@ paho-mqtt==2.1.0
 # OCR - Gemini Vision API
 google-generativeai==0.8.4
 
+# OCR - OpenAI Vision API
+openai>=1.51.0
+
 # OCR - Ollama (HTTP requests, no special library needed)
 requests==2.32.3
 

@@ -59,26 +59,35 @@ def process_receipt(image_path: str, source: str = "upload",
         engine_used = "gemini"
         logger.info("Gemini OCR succeeded.")
     except Exception as e:
-        logger.warning(f"Gemini OCR failed: {e}. Falling back to Ollama.")
+        logger.warning(f"Gemini OCR failed: {e}. Falling back to OpenAI.")
 
-        # --- Step 2: Fallback to Ollama ---
+        # --- Step 2: Fallback to OpenAI ---
         try:
-            from src.backend.call_ollama_vision_api import extract_receipt_via_ollama
-            ocr_data = extract_receipt_via_ollama(image_path)
-            engine_used = "ollama"
-            logger.info("Ollama OCR fallback succeeded.")
+            from src.backend.call_openai_vision_api import extract_receipt_via_openai
+            ocr_data = extract_receipt_via_openai(image_path)
+            engine_used = "openai"
+            logger.info("OpenAI OCR fallback succeeded.")
         except Exception as e2:
-            logger.error(f"Ollama OCR also failed: {e2}")
-            result["status"] = "failed"
-            result["error"] = f"Both OCR engines failed. Gemini: {e}, Ollama: {e2}"
+            logger.warning(f"OpenAI OCR failed: {e2}. Falling back to Ollama.")
 
-            # Send failure feedback via Telegram
-            if source == "telegram" and chat_id:
-                _send_telegram_error(chat_id)
+            # --- Step 3: Fallback to Ollama ---
+            try:
+                from src.backend.call_ollama_vision_api import extract_receipt_via_ollama
+                ocr_data = extract_receipt_via_ollama(image_path)
+                engine_used = "ollama"
+                logger.info("Ollama OCR fallback succeeded.")
+            except Exception as e3:
+                logger.error(f"All OCR engines failed. Gemini: {e}; OpenAI: {e2}; Ollama: {e3}")
+                result["status"] = "failed"
+                result["error"] = f"All OCR engines failed. Gemini: {e}; OpenAI: {e2}; Ollama: {e3}"
 
-            # Save to DB as failed
-            _save_receipt_record(image_path, None, None, "failed", 0.0, user_id)
-            return result
+                # Send failure feedback via Telegram
+                if source == "telegram" and chat_id:
+                    _send_telegram_error(chat_id)
+
+                # Save to DB as failed
+                _save_receipt_record(image_path, None, None, "failed", 0.0, user_id)
+                return result
 
     # --- Step 3: Validate & Route ---
     if ocr_data:

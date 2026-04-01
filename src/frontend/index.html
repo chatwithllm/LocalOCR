@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🛒 Grocery Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #161a24;
+      --surface2: #1e2330;
+      --border: #2a3040;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --accent3: #ff6584;
+      --text: #e8eaf0;
+      --muted: #7a8094;
+      --success: #00d4aa;
+      --warning: #ffb347;
+      --danger: #ff6584;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ---- Sidebar ---- */
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 230px; background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 24px 16px; position: fixed; height: 100vh;
+    }
+    .logo { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: 32px; padding: 0 8px; }
+    .logo span { color: var(--accent); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: 10px; cursor: pointer; color: var(--muted); font-size: 0.9rem;
+      font-weight: 500; transition: all 0.2s; margin-bottom: 4px; user-select: none;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: var(--accent); color: #fff; }
+    .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+    /* ---- Main ---- */
+    .main { margin-left: 230px; flex: 1; padding: 32px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ---- Header ---- */
+    .page-header { margin-bottom: 28px; }
+    .page-header h1 { font-size: 1.6rem; font-weight: 700; }
+    .page-header p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+    /* ---- Stat Cards ---- */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .stat-label { font-size: 0.78rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 2rem; font-weight: 700; margin-top: 6px; }
+    .stat-sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .stat-card.accent .stat-value { color: var(--accent); }
+    .stat-card.success .stat-value { color: var(--success); }
+    .stat-card.warning .stat-value { color: var(--warning); }
+    .stat-card.danger .stat-value { color: var(--danger); }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; margin-bottom: 20px;
+    }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .card-title { font-size: 1rem; font-weight: 600; }
+
+    /* ---- Table ---- */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th { text-align: left; padding: 10px 14px; color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    /* ---- Badge ---- */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-dairy { background: #1a3a5c; color: #7dc4ff; }
+    .badge-meat { background: #3a1a1a; color: #ff8888; }
+    .badge-other { background: #2a2a3a; color: #aab; }
+    .badge-fridge { background: #0d2a2a; color: #00d4aa; }
+    .badge-pantry { background: #2a2a0d; color: #d4c400; }
+    .badge-freezer { background: #0d1a2a; color: #6ac0ff; }
+    .badge-low { background: rgba(255,101,132,0.15); color: var(--danger); }
+    .badge-ok { background: rgba(0,212,170,0.1); color: var(--success); }
+
+    /* ---- Buttons ---- */
+    .btn {
+      padding: 9px 18px; border-radius: 9px; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #7c74ff; transform: translateY(-1px); }
+    .btn-success { background: var(--success); color: #003; }
+    .btn-success:hover { opacity: 0.85; }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: rgba(255,101,132,0.1); }
+    .btn-sm { padding: 5px 12px; font-size: 0.78rem; }
+    .btn-ghost { background: var(--surface2); color: var(--text); }
+    .btn-ghost:hover { background: var(--border); }
+
+    /* ---- Form ---- */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+    input, select {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 9px; padding: 10px 14px; color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: 0.88rem;
+      transition: border-color 0.2s; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    /* ---- Upload Zone ---- */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 14px;
+      padding: 48px 24px; text-align: center; cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent); background: rgba(108,99,255,0.05);
+    }
+    .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .upload-zone p { color: var(--muted); font-size: 0.9rem; }
+    .upload-zone strong { color: var(--text); }
+    #preview-img { max-width: 300px; max-height: 300px; border-radius: 10px; margin-top: 16px; display: none; }
+
+    /* ---- Progress Bar ---- */
+    .progress-wrap { background: var(--surface2); border-radius: 99px; height: 10px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 99px; transition: width 0.5s; background: var(--accent); }
+    .progress-bar.ok { background: var(--success); }
+    .progress-bar.warn { background: var(--warning); }
+    .progress-bar.danger { background: var(--danger); }
+
+    /* ---- Toast ---- */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 20px; font-size: 0.88rem;
+      transform: translateY(100px); opacity: 0; transition: all 0.3s;
+      max-width: 360px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { border-color: var(--success); }
+    #toast.error { border-color: var(--danger); }
+
+    /* ---- Auth Banner ---- */
+    #auth-banner {
+      background: rgba(255,101,132,0.1); border: 1px solid var(--danger);
+      border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;
+      display: none; align-items: center; gap: 12px;
+    }
+    #auth-banner.show { display: flex; }
+    #auth-token-input { flex: 1; }
+
+    /* ---- Empty State ---- */
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* ---- Spinner ---- */
+    .spinner {
+      width: 20px; height: 20px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.7s linear infinite; display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Recs ---- */
+    .rec-item {
+      background: var(--surface2); border-radius: 10px; padding: 14px 16px;
+      margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px;
+    }
+    .rec-icon { font-size: 1.4rem; }
+    .rec-name { font-weight: 600; font-size: 0.9rem; }
+    .rec-msg { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+    .rec-conf { font-size: 0.75rem; color: var(--accent); font-weight: 600; margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">🛒 <span>Grocery</span></div>
+    <div class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" onclick="nav('inventory')"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item" onclick="nav('products')"><span class="nav-icon">🏷️</span> Products</div>
+    <div class="nav-item" onclick="nav('upload')"><span class="nav-icon">📸</span> Upload Receipt</div>
+    <div class="nav-item" onclick="nav('budget')"><span class="nav-icon">💰</span> Budget</div>
+    <div class="nav-item" onclick="nav('analytics')"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item" onclick="nav('recs')"><span class="nav-icon">💡</span> Recommendations</div>
+    <div style="flex:1"></div>
+    <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Auth Banner -->
+    <div id="auth-banner">
+      <span>🔑</span>
+      <input class="form-control" id="auth-token-input" type="password" placeholder="Enter your API token…" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:Inter,sans-serif;" />
+      <button class="btn btn-primary" onclick="saveToken()">Save</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header"><h1>Dashboard</h1><p>Your grocery inventory at a glance</p></div>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-label">Total Products</div><div class="stat-value" id="stat-products">—</div><div class="stat-sub">in catalog</div></div>
+        <div class="stat-card success"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inv">—</div><div class="stat-sub">tracked</div></div>
+        <div class="stat-card warning"><div class="stat-label">Low Stock</div><div class="stat-value" id="stat-low">—</div><div class="stat-sub">need restocking</div></div>
+        <div class="stat-card"><div class="stat-label">Budget Used</div><div class="stat-value" id="stat-budget">—</div><div class="stat-sub" id="stat-budget-sub">this month</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚠️ Low Stock Alerts</span></div>
+          <div id="dash-low-stock"><div class="empty-state"><div class="icon">✅</div><p>All items well-stocked!</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">💡 Top Recommendations</span></div>
+          <div id="dash-recs"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory -->
+    <div class="page" id="page-inventory">
+      <div class="page-header"><h1>Inventory</h1><p>Track what you have at home</p></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Add Item</span>
+        </div>
+        <div class="form-grid" id="add-inv-form">
+          <div class="form-group"><label>Product Name</label><input id="inv-name" placeholder="e.g. Organic Milk" /></div>
+          <div class="form-group"><label>Quantity</label><input id="inv-qty" type="number" min="0" step="0.1" value="1" /></div>
+          <div class="form-group"><label>Location</label>
+            <select id="inv-loc"><option>Fridge</option><option>Pantry</option><option>Freezer</option><option>Cabinet</option></select>
+          </div>
+          <div class="form-group"><label>Low-Stock Threshold</label><input id="inv-thresh" type="number" min="0" step="0.1" value="1" /></div>
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="addInventoryItem()">➕ Add to Inventory</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Current Inventory</span><button class="btn btn-ghost btn-sm" onclick="loadInventory()">🔄 Refresh</button></div>
+        <div class="table-wrap"><div id="inv-table-body"></div></div>
+      </div>
+    </div>
+
+    <!-- Products -->
+    <div class="page" id="page-products">
+      <div class="page-header"><h1>Products</h1><p>Your product catalog</p></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Add Product</span></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Name</label><input id="prod-name" placeholder="e.g. Whole Wheat Bread" /></div>
+          <div class="form-group"><label>Category</label>
+            <select id="prod-cat"><option value="dairy">Dairy</option><option value="meat">Meat</option><option value="bakery">Bakery</option><option value="produce">Produce</option><option value="frozen">Frozen</option><option value="beverages">Beverages</option><option value="snacks">Snacks</option><option value="other" selected>Other</option></select>
+          </div>
+          <div class="form-group"><label>Barcode (optional)</label><input id="prod-barcode" placeholder="0123456789012" /></div>
+        </div>
+        <div style="margin-top:16px"><button class="btn btn-primary" onclick="createProduct()">➕ Add Product</button></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Catalog (<span id="prod-count">0</span>)</span>
+          <div style="display:flex;gap:8px">
+            <input id="prod-search" placeholder="🔍 Search…" style="width:200px" oninput="searchProducts()" />
+            <button class="btn btn-ghost btn-sm" onclick="loadProducts()">🔄</button>
+          </div>
+        </div>
+        <div class="table-wrap"><div id="prod-table-body"></div></div>
+      </div>
+    </div>
+
+    <!-- Upload -->
+    <div class="page" id="page-upload">
+      <div class="page-header"><h1>Upload Receipt</h1><p>AI will extract items and update your inventory</p></div>
+      <div class="card">
+        <div class="upload-zone" id="drop-zone">
+          <input type="file" id="file-input" accept="image/*" onchange="previewFile(this)" />
+          <div class="upload-icon">📸</div>
+          <p><strong>Click or drag & drop</strong> a receipt image</p>
+          <p style="margin-top:6px;font-size:0.8rem">JPG, PNG, WEBP — max 10MB</p>
+          <img id="preview-img" />
+        </div>
+        <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
+          <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Process Receipt</button>
+          <div id="upload-spinner" style="display:none"><div class="spinner"></div></div>
+          <span id="upload-status" style="color:var(--muted);font-size:0.88rem"></span>
+        </div>
+      </div>
+      <div class="card" id="ocr-result-card" style="display:none">
+        <div class="card-header"><span class="card-title">✅ Extracted Items</span></div>
+        <div id="ocr-result"></div>
+      </div>
+    </div>
+
+    <!-- Budget -->
+    <div class="page" id="page-budget">
+      <div class="page-header"><h1>Budget</h1><p>Track your monthly grocery spending</p></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Set Monthly Budget</span></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Month</label><input type="month" id="budget-month" /></div>
+          <div class="form-group"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
+        </div>
+        <div style="margin-top:16px"><button class="btn btn-primary" onclick="setBudget()">💾 Save Budget</button></div>
+      </div>
+      <div class="card" id="budget-status-card">
+        <div class="card-header"><span class="card-title">This Month</span><button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">🔄</button></div>
+        <div id="budget-status-body"></div>
+      </div>
+    </div>
+
+    <!-- Analytics -->
+    <div class="page" id="page-analytics">
+      <div class="page-header"><h1>Analytics</h1><p>Understand your spending patterns</p></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Spending Overview</span>
+          <select id="analytics-period" onchange="loadAnalytics()" style="width:150px">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </div>
+        <div id="analytics-body"><div class="empty-state"><div class="icon">📊</div><p>No spending data yet. Upload a receipt to get started.</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">💎 Deals Captured</span></div>
+        <div id="deals-body"><div class="empty-state"><div class="icon">🏷️</div><p>No deals tracked yet.</p></div></div>
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="page" id="page-recs">
+      <div class="page-header"><h1>Recommendations</h1><p>Smart suggestions based on your history</p></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Today's Picks</span><button class="btn btn-ghost btn-sm" onclick="loadRecs()">🔄</button></div>
+        <div id="recs-body"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div></div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="page" id="page-settings">
+      <div class="page-header"><h1>Settings</h1><p>Configure your Grocery Manager</p></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔑 API Token</span></div>
+        <div class="form-group">
+          <label>Your bearer token (stored in browser)</label>
+          <div style="display:flex;gap:10px">
+            <input type="password" id="settings-token" placeholder="Paste your token here" style="flex:1" />
+            <button class="btn btn-primary" onclick="saveToken()">Save</button>
+            <button class="btn btn-ghost" onclick="toggleTokenVis()">👁</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:16px">
+          <label>API Base URL</label>
+          <input id="settings-url" value="http://localhost:8080" />
+        </div>
+        <div style="margin-top:16px"><button class="btn btn-success" onclick="saveSettings()">✅ Save Settings</button></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// Config & State
+// ============================================================
+let API_BASE = localStorage.getItem('api_base') || 'http://localhost:8080';
+let TOKEN = localStorage.getItem('api_token') || '';
+
+function getHeaders() {
+  return { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API_BASE + path, {
+    headers: getHeaders(),
+    ...opts
+  });
+  return res;
+}
+
+// ============================================================
+// Navigation
+// ============================================================
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'inventory') loadInventory();
+  if (page === 'products') loadProducts();
+  if (page === 'budget') { loadBudgetStatus(); setDefaultMonth(); }
+  if (page === 'analytics') loadAnalytics();
+  if (page === 'recs') loadRecs();
+  if (page === 'settings') {
+    document.getElementById('settings-token').value = TOKEN;
+    document.getElementById('settings-url').value = API_BASE;
+  }
+}
+
+// ============================================================
+// Toast
+// ============================================================
+let toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+// ============================================================
+// Auth
+// ============================================================
+function checkAuth() {
+  const banner = document.getElementById('auth-banner');
+  if (!TOKEN) {
+    banner.classList.add('show');
+    document.getElementById('auth-token-input').value = '';
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+function saveToken() {
+  const t = document.getElementById('auth-token-input').value.trim() ||
+            document.getElementById('settings-token')?.value?.trim();
+  if (t) {
+    TOKEN = t;
+    localStorage.setItem('api_token', t);
+    checkAuth();
+    toast('Token saved! ✅', 'success');
+    loadDashboard();
+  }
+}
+
+function saveSettings() {
+  TOKEN = document.getElementById('settings-token').value.trim();
+  API_BASE = document.getElementById('settings-url').value.trim();
+  localStorage.setItem('api_token', TOKEN);
+  localStorage.setItem('api_base', API_BASE);
+  checkAuth();
+  toast('Settings saved! ✅', 'success');
+}
+
+function toggleTokenVis() {
+  const el = document.getElementById('settings-token');
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+// ============================================================
+// Dashboard
+// ============================================================
+async function loadDashboard() {
+  if (!TOKEN) return;
+  try {
+    const [prodRes, invRes, recRes] = await Promise.all([
+      api('/products'),
+      api('/inventory'),
+      api('/recommendations'),
+    ]);
+    const prods = prodRes.ok ? await prodRes.json() : null;
+    const inv = invRes.ok ? await invRes.json() : null;
+    const recs = recRes.ok ? await recRes.json() : null;
+
+    if (prods) document.getElementById('stat-products').textContent = prods.total ?? prods.products?.length ?? '—';
+    if (inv) {
+      document.getElementById('stat-inv').textContent = inv.count ?? '—';
+      const low = (inv.items || []).filter(i => i.threshold && i.quantity <= i.threshold);
+      document.getElementById('stat-low').textContent = low.length;
+      const lowEl = document.getElementById('dash-low-stock');
+      if (low.length === 0) {
+        lowEl.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>All items well-stocked!</p></div>';
+      } else {
+        lowEl.innerHTML = low.map(i => `
+          <div class="rec-item">
+            <span class="rec-icon">⚠️</span>
+            <div>
+              <div class="rec-name">${escHtml(i.product_name)}</div>
+              <div class="rec-msg">${i.quantity} left / threshold: ${i.threshold} · ${i.location || ''}</div>
+            </div>
+          </div>`).join('');
+      }
+    }
+    if (recs) {
+      const recsEl = document.getElementById('dash-recs');
+      const list = recs.recommendations?.slice(0, 3) || [];
+      recsEl.innerHTML = list.length ? list.map(r => recHtml(r)).join('') :
+        '<div class="empty-state"><div class="icon">💡</div><p>No recommendations yet</p></div>';
+    }
+
+    // Budget stat
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const bRes = await api(`/budget/status?month=${month}`);
+    if (bRes.ok) {
+      const b = await bRes.json();
+      const pct = b.percentage ?? 0;
+      document.getElementById('stat-budget').textContent = `${pct}%`;
+      document.getElementById('stat-budget-sub').textContent = `$${b.spent ?? 0} / $${b.budget_amount ?? 0}`;
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ============================================================
+// Inventory
+// ============================================================
+async function loadInventory() {
+  const res = await api('/inventory');
+  const body = document.getElementById('inv-table-body');
+  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load inventory.</p></div>'; return; }
+  const data = await res.json();
+  const items = data.items || [];
+  if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
+  body.innerHTML = `
+    <table>
+      <thead><tr><th>Product</th><th>Qty</th><th>Location</th><th>Threshold</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${items.map(i => `
+        <tr>
+          <td><strong>${escHtml(i.product_name)}</strong></td>
+          <td>${i.quantity}</td>
+          <td><span class="badge badge-${(i.location||'').toLowerCase()}">${i.location || '—'}</span></td>
+          <td>${i.threshold ?? '—'}</td>
+          <td>${i.threshold && i.quantity <= i.threshold
+            ? '<span class="badge badge-low">⚠️ Low</span>'
+            : '<span class="badge badge-ok">✅ OK</span>'}</td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="consumeItem(${i.id})">−1</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteInventoryItem(${i.id})">🗑</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function addInventoryItem() {
+  const name = document.getElementById('inv-name').value.trim();
+  if (!name) { toast('Enter a product name', 'error'); return; }
+  const res = await api('/inventory/add-item', {
+    method: 'POST',
+    body: JSON.stringify({
+      product_name: name,
+      quantity: parseFloat(document.getElementById('inv-qty').value) || 1,
+      location: document.getElementById('inv-loc').value,
+      threshold: parseFloat(document.getElementById('inv-thresh').value) || 1,
+    })
+  });
+  if (res.ok) { toast(`${name} added to inventory ✅`, 'success'); document.getElementById('inv-name').value = ''; loadInventory(); }
+  else { const e = await res.json(); toast(e.error || 'Failed to add item', 'error'); }
+}
+
+async function consumeItem(id) {
+  const res = await api(`/inventory/${id}/consume`, { method: 'PUT', body: JSON.stringify({amount: 1}) });
+  if (res.ok) { toast('Consumed 1 ✅', 'success'); loadInventory(); }
+}
+
+async function deleteInventoryItem(id) {
+  if (!confirm('Remove this item from inventory?')) return;
+  const res = await api(`/inventory/${id}`, { method: 'DELETE' });
+  if (res.ok) { toast('Removed ✅', 'success'); loadInventory(); }
+}
+
+// ============================================================
+// Products
+// ============================================================
+async function loadProducts(query = '') {
+  const url = query ? `/products/search?q=${encodeURIComponent(query)}` : '/products';
+  const res = await api(url);
+  const body = document.getElementById('prod-table-body');
+  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load products.</p></div>'; return; }
+  const data = await res.json();
+  const items = data.products || data.results || [];
+  document.getElementById('prod-count').textContent = data.total ?? items.length;
+  if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>'; return; }
+  body.innerHTML = `
+    <table>
+      <thead><tr><th>Name</th><th>Category</th><th>Barcode</th><th>Added</th><th>Actions</th></tr></thead>
+      <tbody>${items.map(p => `
+        <tr>
+          <td><strong>${escHtml(p.name)}</strong></td>
+          <td><span class="badge badge-${p.category?.toLowerCase()}">${p.category || '—'}</span></td>
+          <td style="color:var(--muted);font-size:0.8rem">${p.barcode || '—'}</td>
+          <td style="color:var(--muted);font-size:0.8rem">${p.created_at ? p.created_at.split('T')[0] : '—'}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function searchProducts() {
+  const q = document.getElementById('prod-search').value;
+  clearTimeout(window._searchTimer);
+  window._searchTimer = setTimeout(() => loadProducts(q), 300);
+}
+
+async function createProduct() {
+  const name = document.getElementById('prod-name').value.trim();
+  if (!name) { toast('Enter a product name', 'error'); return; }
+  const res = await api('/products/create', {
+    method: 'POST',
+    body: JSON.stringify({ name, category: document.getElementById('prod-cat').value, barcode: document.getElementById('prod-barcode').value || null })
+  });
+  if (res.ok) {
+    toast(`${name} created ✅`, 'success');
+    document.getElementById('prod-name').value = '';
+    document.getElementById('prod-barcode').value = '';
+    loadProducts();
+  } else { const e = await res.json(); toast(e.error || 'Failed', 'error'); }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+  const res = await api(`/products/${id}`, { method: 'DELETE' });
+  if (res.ok) { toast('Deleted ✅', 'success'); loadProducts(); }
+}
+
+// ============================================================
+// Upload
+// ============================================================
+function previewFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const img = document.getElementById('preview-img');
+  img.src = URL.createObjectURL(file);
+  img.style.display = 'block';
+  document.getElementById('upload-btn').disabled = false;
+}
+
+async function uploadReceipt() {
+  const file = document.getElementById('file-input').files[0];
+  if (!file) { toast('Select an image first', 'error'); return; }
+
+  document.getElementById('upload-btn').disabled = true;
+  document.getElementById('upload-spinner').style.display = 'block';
+  document.getElementById('upload-status').textContent = 'Uploading and processing…';
+
+  const form = new FormData();
+  form.append('image', file);
+
+  try {
+    const res = await fetch(API_BASE + '/receipts/upload', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+      body: form
+    });
+    const data = await res.json();
+    document.getElementById('upload-spinner').style.display = 'none';
+    document.getElementById('upload-btn').disabled = false;
+
+    if (res.ok) {
+      document.getElementById('upload-status').textContent = `✅ Processed · ${data.items_count ?? ''} items`;
+      toast('Receipt processed! ✅', 'success');
+      const card = document.getElementById('ocr-result-card');
+      card.style.display = 'block';
+      const items = data.items || [];
+      document.getElementById('ocr-result').innerHTML = items.length ?
+        `<table>
+          <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th></tr></thead>
+          <tbody>${items.map(i => `<tr><td>${escHtml(i.name)}</td><td>${i.quantity ?? 1}</td><td>$${(i.unit_price||0).toFixed(2)}</td></tr>`).join('')}</tbody>
+        </table>
+        <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Extracted by: ${data.engine ?? 'AI'} · Confidence: ${((data.confidence??0)*100).toFixed(0)}%</p>` :
+        `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
+    } else {
+      document.getElementById('upload-status').textContent = '❌ ' + (data.error || 'Failed');
+      toast(data.error || 'Upload failed', 'error');
+    }
+  } catch(e) {
+    document.getElementById('upload-spinner').style.display = 'none';
+    document.getElementById('upload-btn').disabled = false;
+    document.getElementById('upload-status').textContent = '❌ Network error';
+    toast('Network error — is the server running?', 'error');
+  }
+}
+
+// Drag & drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById('file-input').files = e.dataTransfer.files;
+    previewFile({ files: [file] });
+  }
+});
+
+// ============================================================
+// Budget
+// ============================================================
+function setDefaultMonth() {
+  const now = new Date();
+  document.getElementById('budget-month').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+async function setBudget() {
+  const month = document.getElementById('budget-month').value;
+  const amt = parseFloat(document.getElementById('budget-amt').value);
+  if (!month || !amt) { toast('Enter month and amount', 'error'); return; }
+  const res = await api('/budget/set-monthly', { method: 'POST', body: JSON.stringify({ month, budget_amount: amt }) });
+  if (res.ok) { toast('Budget saved ✅', 'success'); loadBudgetStatus(); }
+  else { const e = await res.json(); toast(e.error || 'Failed', 'error'); }
+}
+
+async function loadBudgetStatus() {
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const res = await api(`/budget/status?month=${month}`);
+  const body = document.getElementById('budget-status-body');
+  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>No budget set for this month.</p></div>'; return; }
+  const b = await res.json();
+  const pct = b.percentage ?? 0;
+  const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  body.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:600">${b.month}</span>
+        <span style="color:var(--muted)">$${b.spent ?? 0} / $${b.budget_amount ?? 0}</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
+        <span>${pct}% used</span>
+        <span>$${b.remaining ?? (b.budget_amount - b.spent) ?? 0} remaining</span>
+      </div>
+    </div>
+    ${pct >= 80 ? '<div style="color:var(--danger);font-size:0.88rem">⚠️ Over 80% of budget spent!</div>' : ''}`;
+}
+
+// ============================================================
+// Analytics
+// ============================================================
+async function loadAnalytics() {
+  const period = document.getElementById('analytics-period').value;
+  const [spendRes, dealsRes] = await Promise.all([
+    api(`/analytics/spending?period=${period}`),
+    api('/analytics/deals-captured?months=1')
+  ]);
+  const body = document.getElementById('analytics-body');
+  if (spendRes.ok) {
+    const d = await spendRes.json();
+    const periods = d.spending_by_period || [];
+    body.innerHTML = periods.length ?
+      `<table>
+        <thead><tr><th>Period</th><th>Total</th><th>Items</th></tr></thead>
+        <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>$${(p.total||0).toFixed(2)}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
+      </table>` :
+      '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
+  }
+  const dealsBody = document.getElementById('deals-body');
+  if (dealsRes.ok) {
+    const d = await dealsRes.json();
+    dealsBody.innerHTML = `<div style="font-size:1.4rem;font-weight:700;color:var(--success)">$${(d.total_saved||0).toFixed(2)} saved</div>
+      <div style="color:var(--muted);font-size:0.85rem;margin-top:4px">in the last month from ${d.deals_count ?? 0} deals</div>`;
+  }
+}
+
+// ============================================================
+// Recommendations
+// ============================================================
+async function loadRecs() {
+  const res = await api('/recommendations');
+  const body = document.getElementById('recs-body');
+  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load recommendations.</p></div>'; return; }
+  const data = await res.json();
+  const list = data.recommendations || [];
+  body.innerHTML = list.length ? list.map(recHtml).join('') :
+    '<div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div>';
+}
+
+function recHtml(r) {
+  const icons = { deal: '🏷️', seasonal: '📅', low_stock: '⚠️' };
+  return `<div class="rec-item">
+    <span class="rec-icon">${icons[r.type] || '💡'}</span>
+    <div>
+      <div class="rec-name">${escHtml(r.product_name)}</div>
+      <div class="rec-msg">${escHtml(r.message)}</div>
+      <div class="rec-conf">Confidence: ${((r.confidence||0)*100).toFixed(0)}%</div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Utils
+// ============================================================
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+// Init
+// ============================================================
+checkAuth();
+loadDashboard();
+</script>
+</body>
+</html>

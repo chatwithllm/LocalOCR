@@ -12,6 +12,7 @@ Auth: Bearer token required
 
 import os
 import logging
+from pathlib import Path
 from uuid import uuid4
 from datetime import datetime
 
@@ -22,6 +23,25 @@ logger = logging.getLogger(__name__)
 receipts_bp = Blueprint("receipts", __name__, url_prefix="/receipts")
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
+
+
+def _get_receipts_root() -> str:
+    """Return the receipt storage root.
+
+    Prefer RECEIPTS_DIR when set. Otherwise use /data/receipts for containerized
+    deployments if /data exists, and fall back to a repo-local data directory for
+    local development runs.
+    """
+    configured = os.getenv("RECEIPTS_DIR")
+    if configured:
+        return configured
+
+    container_path = Path("/data/receipts")
+    if container_path.parent.exists():
+        return str(container_path)
+
+    repo_root = Path(__file__).resolve().parents[2]
+    return str(repo_root / "data" / "receipts")
 
 
 @receipts_bp.route("/upload", methods=["POST"])
@@ -56,7 +76,7 @@ def upload_receipt():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{uuid4().hex[:8]}{ext}"
     year_month = datetime.now().strftime("%Y/%m")
-    save_dir = f"/data/receipts/{year_month}"
+    save_dir = os.path.join(_get_receipts_root(), year_month)
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, filename)
 
