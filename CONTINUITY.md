@@ -7,7 +7,60 @@
 
 ---
 
-## 1. What This System Does (30-Second Summary)
+## 1. Current Continuity Snapshot
+
+### Completed
+
+- Flask backend is running and serving the web app on port `8080`
+- Bearer-token authentication is in place for app APIs
+- Direct receipt upload is implemented and working for images and PDFs
+- Gemini OCR is implemented, migrated to `google-genai`, and working
+- Gemini OCR now augments PDF receipts with the PDF text layer to recover summary fields like date, subtotal, tax, total, and time
+- OCR fallback chain exists: Gemini → OpenAI → Ollama
+- Product, inventory, analytics, budget, and recommendations endpoints are implemented
+- Web app tabs are implemented for dashboard, inventory, products, upload, receipts, budget, analytics, recommendations, and settings
+- Receipt review/history is implemented in the web app, including extracted items plus image/PDF preview
+- Review receipts can persist raw OCR output, be reprocessed, and be approved from the web app
+- Telegram webhook handler is implemented
+- Telegram confirmation step is implemented before OCR begins
+- Telegram webhook registration/status helper is implemented
+- Public HTTPS endpoint `https://inventory.npalakurla.net/telegram/webhook` is reachable
+- Telegram webhook is registered for the current bot
+
+### Verified Working
+
+- `GET /health`
+- web app served at `/` and `/dashboard`
+- Products tab: list, search, create, delete
+- Inventory tab: list, add, consume, delete
+- Budget tab: set and read status
+- Analytics tab: loads and matches backend response shape
+- Recommendations tab: loads correctly
+- Upload Receipt tab: authenticated upload and OCR result rendering for images and PDFs
+- Receipts tab: receipt list, receipt detail, stored image preview, PDF viewer, review approval tools
+- Gemini OCR: direct smoke test and live upload path
+- Telegram bot token: valid
+- Telegram webhook: registered successfully
+- End-to-end Telegram PDF receipt flow:
+  send PDF → bot asks for confirmation → process → Gemini extracts store/date/total/items → receipt saves as processed purchase
+- Verified sample Telegram PDF result:
+  `COSTCO WHOLESALE`, date `2026-03-30`, total `478.42`, `36` receipt items, classified as `grocery`
+
+### Pending / Not Fully Validated
+
+- End-to-end Telegram photo upload validation from the real bot chat
+- Home Assistant dashboard/automation validation
+- MQTT end-to-end validation with a consumer
+- Low-stock alert validation
+- Daily recommendation scheduler validation
+- Backup/restore validation on a clean machine
+- Docker-first fresh-machine validation after the latest changes
+- Automated test coverage refresh
+- Alembic migration workflow
+
+---
+
+## 2. What This System Does (30-Second Summary)
 
 A **self-hosted grocery management system** that:
 - Processes receipt photos via OCR (Gemini AI + Ollama fallback)
@@ -22,7 +75,7 @@ A **self-hosted grocery management system** that:
 
 ---
 
-## 2. Architecture at a Glance
+## 3. Architecture at a Glance
 
 ```
 Telegram / Upload → Flask API (port 8080) → Gemini / Ollama OCR
@@ -43,7 +96,7 @@ Telegram / Upload → Flask API (port 8080) → Gemini / Ollama OCR
 
 ---
 
-## 3. File Map
+## 4. File Map
 
 Every file in the project and what it does:
 
@@ -68,13 +121,13 @@ Every file in the project and what it does:
 | `initialize_database_schema.py` | Step 2 | ✅ Schema defined |
 | `create_flask_application.py` | Step 3 | ✅ App factory created |
 | `setup_mqtt_connection.py` | Step 4 | ✅ Client singleton |
-| `handle_receipt_upload.py` | Step 5 | ✅ Upload endpoint working |
-| `configure_telegram_webhook.py` | Step 6 | 🔲 Stub only |
-| `handle_telegram_messages.py` | Step 8 | 🔲 Stub only |
-| `call_gemini_vision_api.py` | Step 9 | ✅ Working via `google-genai` |
+| `handle_receipt_upload.py` | Step 5 | ✅ Upload endpoint working (images + PDFs) |
+| `configure_telegram_webhook.py` | Step 6 | ✅ Webhook registration/status helper working |
+| `handle_telegram_messages.py` | Step 8 | ✅ Webhook handler working (photos, PDFs, confirm/cancel) |
+| `call_gemini_vision_api.py` | Step 9 | ✅ Working via `google-genai` with PDF text-layer enrichment |
 | `call_ollama_vision_api.py` | Step 10 | 🟡 Fallback implemented, not recently re-validated |
-| `extract_receipt_data.py` | Step 11 | ✅ Hybrid OCR pipeline working |
-| `save_receipt_images.py` | Step 12 | 🔲 Stub only |
+| `extract_receipt_data.py` | Step 11 | ✅ Hybrid OCR pipeline working (includes PDF preprocessing + review workflow) |
+| `save_receipt_images.py` | Step 12 | 🟡 Storage helper exists; not the primary reviewed path |
 | `manage_product_catalog.py` | Step 13 | ✅ CRUD working |
 | `manage_inventory.py` | Step 14 | ✅ CRUD working |
 | `check_inventory_thresholds.py` | Step 15 | 🟡 Partial / not fully validated |
@@ -108,11 +161,12 @@ Every file in the project and what it does:
 | `ARCHITECTURE.md` | System diagram + design decisions |
 | `API_REFERENCE.md` | All endpoints, auth, MQTT topics |
 | `DEPLOYMENT_GUIDE.md` | Zero-to-running setup steps |
+| `IMPLEMENTATION_STATUS.md` | Current working state, restart handoff, and next steps |
 | `NGINX_PROXY_MANAGER_SETUP.md` | Telegram webhook routing |
 
 ---
 
-## 4. Phase Checklist — Progress Tracker
+## 5. Phase Checklist — Progress Tracker
 
 Use this to track implementation progress. Check off items as you go.
 
@@ -122,15 +176,17 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Step 3: Flask app (`create_flask_application.py` — app factory + auth)
 - [x] Step 4: MQTT connection (`setup_mqtt_connection.py` — client ready)
 - [x] Step 5: Upload endpoint (`handle_receipt_upload.py` — authenticated and working)
+- [x] PDF receipts supported through upload endpoint
 - [x] Wire blueprints into Flask app
 - [ ] Run `alembic init` and create initial migration
 - [ ] Test `docker-compose up` end-to-end
 
 ### Phase 2: Telegram Integration
-- [ ] Step 6: Configure Telegram webhook
-- [ ] Step 7: Setup Nginx Proxy Manager route
-- [ ] Step 8: Implement Telegram webhook handler
-- [ ] Test: Send photo → receive confirmation
+- [x] Step 6: Configure Telegram webhook helper
+- [x] Step 7: Setup public webhook route
+- [x] Step 8: Implement Telegram webhook handler
+- [ ] Test: Send real Telegram photo → receive confirmation and review in web app
+- [x] Test: Send real Telegram PDF → receive confirmation and save in web app
 
 ### Phase 3: Hybrid OCR System
 - [x] Step 9: Implement Gemini Vision API call
@@ -138,6 +194,8 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Step 11: Wire hybrid fallback logic
 - [x] Step 12: Implement image storage + retention
 - [x] Test: Upload receipt → verify extracted JSON
+- [x] PDF preprocessing path implemented for OCR
+- [x] PDF text-layer parsing implemented for summary fields
 
 ### Phase 4: Inventory Management *(parallel OK)*
 - [x] Step 13: Implement product CRUD
@@ -162,6 +220,14 @@ Use this to track implementation progress. Check off items as you go.
 - [ ] Step 22: Create HA automations
 - [ ] Test: Change inventory → see HA update
 
+### Phase 7.5: Receipt Review UX
+- [x] Add receipts history endpoints
+- [x] Add receipt image serving
+- [x] Add Receipts tab in web app
+- [x] Add review reprocess + approve actions
+- [x] Test: Open receipt details and image in browser
+- [x] Test: Approve a review receipt from the web app
+
 ### Phase 8: Backup & Portability
 - [ ] Step 23: Test backup script
 - [ ] Step 23: Test restore script on clean machine
@@ -174,7 +240,7 @@ Use this to track implementation progress. Check off items as you go.
 
 ---
 
-## 5. How to Resume from Any Point
+## 6. How to Resume from Any Point
 
 ### Fresh start (new machine)
 ```bash
@@ -189,20 +255,22 @@ docker-compose up -d
 ### Resuming after a break
 1. Read `docs/IMPLEMENTATION_STATUS.md`
 2. Read this file (`CONTINUITY.md`)
-3. Check the Phase Checklist (section 4) for current progress
-4. Open `PROMPT.md` and find the next unchecked step
-5. Each step has: file path, what to do, key considerations, testing
-6. Implement, test, check off
+3. Check the "Completed / Verified Working / Pending" snapshot at the top of this file
+4. Check the Phase Checklist (section 5) for current progress
+5. Open `PROMPT.md` and find the next unchecked step
+6. Each step has: file path, what to do, key considerations, testing
+7. Implement, test, check off
 
 ### Handing off to someone
 1. Share this repo
-2. Point them to CONTINUITY.md first
-3. PRD.md for "what" / PROMPT.md for "how"
-4. Phase Checklist shows current state
+2. Point them to `docs/IMPLEMENTATION_STATUS.md` first
+3. Then point them to `CONTINUITY.md`
+4. `PRD.md` explains the product and `PROMPT.md` explains the original implementation plan
+5. The continuity snapshot and phase checklist show the current state
 
 ---
 
-## 6. Key Decisions Log
+## 7. Key Decisions Log
 
 Decisions made during planning — context for anyone picking this up:
 
@@ -219,16 +287,21 @@ Decisions made during planning — context for anyone picking this up:
 | 9 | **Alembic migrations** | Safe schema changes post-launch | Manual ALTER TABLE (fragile, error-prone) |
 | 10 | **12-month image retention** | Balance storage vs audit trail | Keep forever (disk growth), 6 months (too short) |
 | 11 | **Phases 4-6 parallelizable** | Independent data consumers, enables parallel development | Sequential (slower, unnecessary dependency) |
+| 12 | **Receipt review in web app** | Telegram/upload flows need an inspectable history and image preview | Terminal-only review, Home Assistant-only review |
+| 13 | **Telegram webhook secret support** | Adds a simple authenticity check for webhook requests | Open webhook endpoint without shared secret |
+| 14 | **Gemini model made configurable** | Avoid hard-coded retired model names and simplify future upgrades | Hard-coded model string in code |
 
 ---
 
-## 7. Environment Variables Reference
+## 8. Environment Variables Reference
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `GEMINI_API_KEY` | ✅ | — | Google Gemini Vision API key |
 | `GEMINI_MODEL` | ❌ | `gemini-2.5-flash` | Gemini model name used by OCR |
 | `TELEGRAM_BOT_TOKEN` | ❌ | — | Telegram bot token (only for Phase 2) |
+| `TELEGRAM_WEBHOOK_BASE_URL` | ❌ | — | Public HTTPS base URL used for Telegram webhook registration |
+| `TELEGRAM_WEBHOOK_SECRET` | ❌ | — | Shared secret validated on incoming Telegram webhook requests |
 | `MQTT_BROKER` | ❌ | `mqtt` | MQTT broker hostname |
 | `MQTT_PORT` | ❌ | `1883` | MQTT broker port |
 | `FLASK_PORT` | ❌ | `8080` | Flask API port |
@@ -241,7 +314,7 @@ Decisions made during planning — context for anyone picking this up:
 
 ---
 
-## 8. Known Gotchas
+## 9. Known Gotchas
 
 1. **SQLite WAL mode must be set on EVERY connection** — use `event.listen(engine, "connect", ...)` in SQLAlchemy, not a one-time PRAGMA
 2. **Ollama first start is slow** — model download (~2GB) happens on first `ollama pull`
@@ -250,10 +323,13 @@ Decisions made during planning — context for anyone picking this up:
 5. **Telegram webhook timeout** — must respond within 30 seconds or Telegram retries
 6. **Docker Compose `mqtt` service name** — use `mqtt` not `localhost` when connecting from backend container
 7. **SQLite database path** — must be on a Docker volume (`/data/db/`), not inside the container filesystem
+8. **Telegram works only with public HTTPS** — a valid local bot token is not enough by itself
+9. **Receipt review depends on stored image paths** — keep receipt storage under the configured receipts root
+10. **PDF OCR depends on `pdftoppm`** — Docker installs it, but local non-Docker setups need Poppler installed
 
 ---
 
-## 9. Useful Commands
+## 10. Useful Commands
 
 ```bash
 # Start everything
@@ -277,6 +353,12 @@ docker exec grocery-mqtt mosquitto_pub -t "test" -m "hello"
 
 # Ollama model status
 docker exec grocery-ollama ollama list
+
+# Telegram webhook status
+./.venv/bin/python -m src.backend.configure_telegram_webhook status
+
+# Register Telegram webhook
+./.venv/bin/python -m src.backend.configure_telegram_webhook set --base-url https://inventory.npalakurla.net
 
 # Backup
 docker exec grocery-backend bash /app/scripts/backup_database_and_volumes.sh

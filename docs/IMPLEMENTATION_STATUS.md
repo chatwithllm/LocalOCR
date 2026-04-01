@@ -6,8 +6,9 @@
 
 - Backend is running on port `8080`
 - Web dashboard is served by Flask at `/` and `/dashboard`
-- Receipt upload works through the authenticated `/receipts/upload` endpoint
+- Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
 - Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
+- PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
 - SQLite is being used locally with WAL mode enabled
 - The repo is not production-finished yet, but it is in a usable development state
 
@@ -28,9 +29,15 @@ These flows were manually verified in the current environment:
 - Recommendations tab:
   endpoint and UI load correctly; can be empty if there is not enough history
 - Upload Receipt tab:
-  authenticated upload works and renders OCR results
+  authenticated upload works for images and PDFs and renders OCR results
 - Gemini OCR:
   verified directly and through the live upload path
+- Receipts tab:
+  supports image preview, PDF viewing, OCR re-run, and review approval
+- Telegram PDF flow:
+  verified end to end from the real bot chat, including confirm-before-process
+- Verified real PDF extraction result:
+  `COSTCO WHOLESALE`, `2026-03-30`, total `478.42`, `36` items, classified as `grocery`
 
 ## Completed Implementation Areas
 
@@ -48,6 +55,11 @@ These flows were manually verified in the current environment:
 - OpenAI OCR fallback code exists
 - Ollama OCR fallback code exists
 - Hybrid receipt processing persists purchases, items, price history, and inventory updates
+- PDF summary extraction can be recovered from the PDF text layer when Gemini misses header/footer fields
+- Telegram webhook handler is implemented
+- Telegram confirmation flow is implemented before OCR begins
+- Telegram webhook registration/status helper is implemented
+- Review receipts now persist raw OCR data and can be approved from the web app
 
 ### Core App Features
 
@@ -62,7 +74,6 @@ These flows were manually verified in the current environment:
 
 These areas exist but are not fully validated or fully complete:
 
-- Telegram webhook flow
 - Nginx Proxy Manager / public webhook routing
 - Home Assistant dashboard and automations
 - MQTT end-to-end validation in a real Home Assistant setup
@@ -70,13 +81,16 @@ These areas exist but are not fully validated or fully complete:
 - Backup and restore validation on a clean machine
 - Alembic migration workflow
 - Automated end-to-end test coverage
+- Real bot validation for Telegram photo receipts
+- Rich browser-level validation of the review editor UI beyond manual smoke use
 
 ## Known Gaps
 
 - The app has working manual smoke coverage, but not a recent full automated verification run
 - Some modules are still more “implemented enough for use” than “fully polished”
 - The Home Assistant configuration files are present, but not validated as part of the latest work
-- Telegram integration remains incomplete
+- PDF conversion depends on `pdftoppm` being present; Docker now installs it, and local hosts need Poppler installed too
+- Dense PDFs may still produce imperfect product names/categories even when summary fields are now recovered correctly
 
 ## Recommended Next Steps
 
@@ -84,7 +98,7 @@ These areas exist but are not fully validated or fully complete:
 2. Validate `docker-compose up -d` from scratch
 3. Run the receipt upload flow against Gemini on the fresh environment
 4. Validate MQTT publishing with a real broker/Home Assistant consumer
-5. Finish Telegram webhook setup and test a real photo upload
+5. Test the Telegram confirmation flow with a real photo receipt
 6. Add or refresh automated tests for products, inventory, upload, and analytics
 
 ## Fresh Start Checklist

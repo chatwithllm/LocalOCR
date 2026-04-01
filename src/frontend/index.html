@@ -204,6 +204,7 @@
     <div class="nav-item" onclick="nav('inventory', this)"><span class="nav-icon">📦</span> Inventory</div>
     <div class="nav-item" onclick="nav('products', this)"><span class="nav-icon">🏷️</span> Products</div>
     <div class="nav-item" onclick="nav('upload', this)"><span class="nav-icon">📸</span> Upload Receipt</div>
+    <div class="nav-item" onclick="nav('receipts', this)"><span class="nav-icon">🧾</span> Receipts</div>
     <div class="nav-item" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
     <div class="nav-item" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
     <div class="nav-item" onclick="nav('recs', this)"><span class="nav-icon">💡</span> Recommendations</div>
@@ -299,11 +300,12 @@
       <div class="page-header"><h1>Upload Receipt</h1><p>AI will extract items and update your inventory</p></div>
       <div class="card">
         <div class="upload-zone" id="drop-zone">
-          <input type="file" id="file-input" accept="image/*" onchange="previewFile(this)" />
+          <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" onchange="previewFile(this)" />
           <div class="upload-icon">📸</div>
-          <p><strong>Click or drag & drop</strong> a receipt image</p>
-          <p style="margin-top:6px;font-size:0.8rem">JPG, PNG, WEBP — max 10MB</p>
+          <p><strong>Click or drag & drop</strong> a receipt image or PDF</p>
+          <p style="margin-top:6px;font-size:0.8rem">JPG, PNG, WEBP, PDF — max 10MB</p>
           <img id="preview-img" />
+          <p id="preview-meta" style="margin-top:12px;font-size:0.82rem;color:var(--muted);display:none"></p>
         </div>
         <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
           <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Process Receipt</button>
@@ -314,6 +316,21 @@
       <div class="card" id="ocr-result-card" style="display:none">
         <div class="card-header"><span class="card-title">✅ Extracted Items</span></div>
         <div id="ocr-result"></div>
+      </div>
+    </div>
+
+    <!-- Budget -->
+    <div class="page" id="page-receipts">
+      <div class="page-header"><h1>Receipts</h1><p>Review receipts sent from Telegram or uploaded directly</p></div>
+      <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Recent Receipts</span><button class="btn btn-ghost btn-sm" onclick="loadReceipts()">🔄</button></div>
+          <div class="table-wrap"><div id="receipts-table-body"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Receipt Details</span></div>
+          <div id="receipt-detail-body"><div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div></div>
+        </div>
       </div>
     </div>
 
@@ -394,6 +411,7 @@
 // ============================================================
 let API_BASE = localStorage.getItem('api_base') || 'http://localhost:8080';
 let TOKEN = localStorage.getItem('api_token') || '';
+let receiptImageObjectUrl = null;
 
 function getInventoryItems(data) {
   return data?.items || data?.inventory || [];
@@ -410,6 +428,13 @@ function getSpendingPeriods(data) {
 
 function getReceiptItems(data) {
   return data?.items || data?.data?.items || [];
+}
+
+function formatDateTime(value, fallback = '—') {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function getRecommendationType(rec) {
@@ -431,6 +456,14 @@ function formatLabel(value, fallback = 'Other') {
 
 function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function prettyJson(value) {
+  try {
+    return JSON.stringify(value ?? {}, null, 2);
+  } catch (e) {
+    return '{}';
+  }
 }
 
 function getHeaders() {
@@ -456,6 +489,7 @@ function nav(page, el) {
   if (page === 'dashboard') loadDashboard();
   if (page === 'inventory') loadInventory();
   if (page === 'products') loadProducts();
+  if (page === 'receipts') loadReceipts();
   if (page === 'budget') { loadBudgetStatus(); setDefaultMonth(); }
   if (page === 'analytics') loadAnalytics();
   if (page === 'recs') loadRecs();
@@ -689,14 +723,22 @@ function previewFile(input) {
   const file = input.files[0];
   if (!file) return;
   const img = document.getElementById('preview-img');
-  img.src = URL.createObjectURL(file);
-  img.style.display = 'block';
+  const meta = document.getElementById('preview-meta');
+  meta.style.display = 'block';
+  meta.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  } else {
+    img.src = URL.createObjectURL(file);
+    img.style.display = 'block';
+  }
   document.getElementById('upload-btn').disabled = false;
 }
 
 async function uploadReceipt() {
   const file = document.getElementById('file-input').files[0];
-  if (!file) { toast('Select an image first', 'error'); return; }
+  if (!file) { toast('Select a receipt file first', 'error'); return; }
 
   document.getElementById('upload-btn').disabled = true;
   document.getElementById('upload-spinner').style.display = 'block';
@@ -731,6 +773,7 @@ async function uploadReceipt() {
         </table>
         <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || 'Unknown')} · Total: ${formatMoney(summary?.total)} · Extracted by: ${data.ocr_engine ?? data.engine ?? 'AI'} · Confidence: ${((data.confidence??0)*100).toFixed(0)}%</p>` :
         `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
+      loadReceipts();
     } else {
       document.getElementById('upload-status').textContent = '❌ ' + (data.error || 'Failed');
       toast(data.error || 'Upload failed', 'error');
@@ -741,6 +784,157 @@ async function uploadReceipt() {
     document.getElementById('upload-status').textContent = '❌ Network error';
     toast('Network error — is the server running?', 'error');
   }
+}
+
+// ============================================================
+// Receipts
+// ============================================================
+async function loadReceipts() {
+  const res = await api('/receipts');
+  const body = document.getElementById('receipts-table-body');
+  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipts.</p></div>'; return; }
+  const data = await res.json();
+  const receipts = data.receipts || [];
+  if (!receipts.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
+    document.getElementById('receipt-detail-body').innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div>';
+    return;
+  }
+
+  body.innerHTML = `
+    <table>
+      <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th></tr></thead>
+      <tbody>${receipts.map(r => `
+        <tr>
+          <td>${escHtml(r.date || '—')}</td>
+          <td><strong>${escHtml(r.store || 'Unknown')}</strong></td>
+          <td>${formatMoney(r.total)}</td>
+          <td>${formatLabel(r.source, 'Upload')}</td>
+          <td><span class="badge badge-${r.status === 'processed' ? 'ok' : 'low'}">${escHtml(formatLabel(r.status, 'Unknown'))}</span></td>
+          <td><button class="btn btn-sm btn-ghost" onclick="viewReceipt(${r.purchase_id || r.id})">Open</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  const firstReceiptId = receipts[0].purchase_id || receipts[0].id;
+  if (firstReceiptId) {
+    viewReceipt(firstReceiptId);
+  }
+}
+
+async function viewReceipt(id) {
+  const res = await api(`/receipts/${id}`);
+  const body = document.getElementById('receipt-detail-body');
+  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipt details.</p></div>'; return; }
+  const receipt = await res.json();
+  const rawItems = receipt.raw_ocr_data?.items || [];
+  const items = (receipt.items && receipt.items.length) ? receipt.items : rawItems;
+  let imageHtml = '<div class="empty-state"><p>No image available for this receipt.</p></div>';
+  const canReprocess = !receipt.raw_ocr_data && ['review', 'failed', 'pending'].includes(receipt.status);
+  const showReviewEditor = receipt.status === 'review' && receipt.raw_ocr_data;
+
+  if (receiptImageObjectUrl) {
+    URL.revokeObjectURL(receiptImageObjectUrl);
+    receiptImageObjectUrl = null;
+  }
+
+  if (receipt.image_url) {
+    try {
+      const imageRes = await fetch(API_BASE + receipt.image_url, { headers: { Authorization: `Bearer ${TOKEN}` } });
+      if (imageRes.ok) {
+        const imageBlob = await imageRes.blob();
+        receiptImageObjectUrl = URL.createObjectURL(imageBlob);
+        const mime = (imageBlob.type || '').toLowerCase();
+        const isPdf = mime.includes('pdf') || receipt.file_type === 'pdf';
+        imageHtml = isPdf
+          ? `<div style="display:grid;gap:10px">
+              <iframe src="${receiptImageObjectUrl}" title="Receipt PDF" style="width:100%;min-height:480px;border-radius:12px;border:1px solid var(--border);background:#fff"></iframe>
+              <a class="btn btn-ghost" href="${receiptImageObjectUrl}" target="_blank" rel="noopener noreferrer">Open PDF in new tab</a>
+            </div>`
+          : `<img src="${receiptImageObjectUrl}" alt="Receipt image" style="max-width:100%;border-radius:12px;border:1px solid var(--border)" />`;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  body.innerHTML = `
+    <div style="display:grid;gap:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
+        <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
+      </div>
+      <div>${imageHtml}</div>
+      <div>
+        <div class="card-header" style="margin-bottom:12px"><span class="card-title">Extracted Items</span><span style="color:var(--muted);font-size:0.82rem">Confidence ${((receipt.confidence || 0) * 100).toFixed(0)}%</span></div>
+        ${items.length ? `
+        <table>
+          <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Engine</th></tr></thead>
+          <tbody>${items.map(i => `<tr><td>${escHtml(i.product_name || i.name || 'Unknown')}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td><td>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</td></tr>`).join('')}</tbody>
+        </table>` : '<div class="empty-state"><p>No extracted items recorded.</p></div>'}
+      </div>
+      ${canReprocess ? `
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header" style="margin-bottom:12px">
+          <span class="card-title">Refresh OCR Data</span>
+          <button class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
+        </div>
+        <p style="color:var(--muted);font-size:0.82rem">This older receipt does not have editable review JSON yet. Re-run OCR once to populate the review editor.</p>
+      </div>` : ''}
+      ${showReviewEditor ? `
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header" style="margin-bottom:12px">
+          <span class="card-title">Review & Approve</span>
+          <button class="btn btn-primary btn-sm" onclick="approveReceipt(${receipt.id})">Save as Purchase</button>
+        </div>
+        <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Edit the OCR JSON below, make sure store, date, total, and items are filled in, then save.</p>
+        <textarea id="review-json-${receipt.id}" style="width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;color:var(--text);font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:0.82rem"></textarea>
+      </div>` : ''}
+      <div style="color:var(--muted);font-size:0.82rem">Status: ${escHtml(formatLabel(receipt.status, 'Unknown'))} · Loaded ${formatDateTime(receipt.created_at, receipt.date || '—')}</div>
+    </div>`;
+
+  if (showReviewEditor) {
+    document.getElementById(`review-json-${receipt.id}`).value = prettyJson(receipt.raw_ocr_data);
+  }
+}
+
+async function reprocessReceipt(id) {
+  const res = await api(`/receipts/${id}/reprocess`, { method: 'POST' });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not re-run OCR', 'error');
+    return;
+  }
+  toast(`OCR re-run complete · ${formatLabel(payload.status, 'Updated')} ✅`, 'success');
+  await loadReceipts();
+  await viewReceipt(id);
+}
+
+async function approveReceipt(id) {
+  const editor = document.getElementById(`review-json-${id}`);
+  if (!editor) { toast('Review editor not found', 'error'); return; }
+
+  let data;
+  try {
+    data = JSON.parse(editor.value);
+  } catch (e) {
+    toast('Review JSON is invalid', 'error');
+    return;
+  }
+
+  const res = await api(`/receipts/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ data })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not approve receipt', 'error');
+    return;
+  }
+
+  toast('Receipt saved as a purchase ✅', 'success');
+  await loadReceipts();
+  await viewReceipt(id);
 }
 
 // Drag & drop

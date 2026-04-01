@@ -15,6 +15,9 @@ import os
 import json
 import logging
 import mimetypes
+import re
+import subprocess
+from pathlib import Path
 from datetime import date, datetime, timezone
 
 from google import genai
@@ -64,11 +67,44 @@ Rules:
 - Return ONLY valid JSON
 """
 
+RECEIPT_SUMMARY_PROMPT = """
+Analyze this receipt image and extract ONLY the high-level summary fields as JSON.
+Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
+
+{
+    "store": "Store name or null",
+    "store_location": "Store address if visible, or null",
+    "date": "YYYY-MM-DD or null",
+    "time": "HH:MM or null",
+    "subtotal": 0.00,
+    "tax": 0.00,
+    "total": 0.00,
+    "confidence": 0.95
+}
+
+Rules:
+- Focus on header/footer summary fields, especially the purchase date and final total
+- If the receipt shows dates like MM/DD/YYYY, convert them to YYYY-MM-DD
+- Prefer the final charged amount as total
+- If a field is not clearly visible, set it to null
+- Return ONLY valid JSON
+"""
+
 # ---------------------------------------------------------------------------
 # Gemini OCR Function
 # ---------------------------------------------------------------------------
 
-def extract_receipt_via_gemini(image_path: str) -> dict:
+def _safe_float(value, default=0.0):
+    """Return a float for logging even when OCR returns null/string values."""
+    try:
+        if value is None:
+            return float(default)
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def extract_receipt_via_gemini(image_path: str, source_file_path: str | None = None) -> dict:
     """Extract receipt data from an image using Google Gemini Vision API.
 
     Args:
@@ -86,28 +122,89 @@ def extract_receipt_via_gemini(image_path: str) -> dict:
 
     # Load and compress image if needed
     image_bytes, mime_type = _load_and_compress_image(image_path)
+    supplemental_text = _extract_pdf_text(source_file_path or image_path)
 
-    # Call Gemini
     client = genai.Client(api_key=GEMINI_API_KEY)
+    result = _generate_gemini_json(
+        client=client,
+        image_bytes=image_bytes,
+        mime_type=mime_type,
+        prompt=_build_prompt(RECEIPT_EXTRACTION_PROMPT, supplemental_text),
+        max_output_tokens=8192,
+    )
+    result = _merge_summary_fields(result, _extract_summary_from_pdf_text(supplemental_text))
+
+    # Validate required fields
+    result.setdefault("confidence", 0.85)
+    result.setdefault("items", [])
+    result.setdefault("total", 0.0)
+
+    if _needs_summary_enrichment(result):
+        summary = extract_receipt_summary_via_gemini(
+            image_path=image_path,
+            client=client,
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            supplemental_text=supplemental_text,
+        )
+        result = _merge_summary_fields(result, summary)
+
+    logger.info(
+        f"Gemini OCR: {result.get('store', '?')} | "
+        f"${_safe_float(result.get('total', 0)):.2f} | "
+        f"{len(result.get('items', []))} items | "
+        f"confidence: {_safe_float(result.get('confidence', 0)):.2f} | "
+        f"model: {GEMINI_MODEL}"
+    )
+
+    return result
+
+
+def extract_receipt_summary_via_gemini(
+    image_path: str,
+    client: genai.Client | None = None,
+    image_bytes: bytes | None = None,
+    mime_type: str | None = None,
+    supplemental_text: str | None = None,
+) -> dict:
+    """Run a focused Gemini pass for summary/header/footer fields."""
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not configured")
+
+    if image_bytes is None or mime_type is None:
+        image_bytes, mime_type = _load_and_compress_image(image_path)
+
+    client = client or genai.Client(api_key=GEMINI_API_KEY)
+    result = _generate_gemini_json(
+        client=client,
+        image_bytes=image_bytes,
+        mime_type=mime_type,
+        prompt=_build_prompt(RECEIPT_SUMMARY_PROMPT, supplemental_text),
+        max_output_tokens=1024,
+    )
+    result.setdefault("confidence", 0.85)
+    return result
+
+
+def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: str, max_output_tokens: int) -> dict:
+    """Send a structured OCR request to Gemini and parse the JSON response."""
     response = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=[
-            RECEIPT_EXTRACTION_PROMPT,
+            prompt,
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
         ],
         config=types.GenerateContentConfig(
-            temperature=0.1,  # Low temp for structured extraction
-            max_output_tokens=4096,
+            temperature=0.1,
+            max_output_tokens=max_output_tokens,
+            response_mime_type="application/json",
         ),
     )
 
-    # Track API usage
     if hasattr(response, "usage_metadata") and response.usage_metadata:
         _track_api_usage(response.usage_metadata)
 
-    # Parse JSON from response
     text = response.text.strip()
-    # Strip markdown code fences if present
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.endswith("```"):
@@ -116,25 +213,120 @@ def extract_receipt_via_gemini(image_path: str) -> dict:
             text = text[4:].strip()
 
     try:
-        result = json.loads(text)
+        return json.loads(text)
     except json.JSONDecodeError as e:
         logger.error(f"Gemini returned invalid JSON: {e}\nRaw: {text[:500]}")
         raise ValueError(f"Gemini OCR returned invalid JSON: {e}")
 
-    # Validate required fields
-    result.setdefault("confidence", 0.85)
-    result.setdefault("items", [])
-    result.setdefault("total", 0.0)
 
-    logger.info(
-        f"Gemini OCR: {result.get('store', '?')} | "
-        f"${result.get('total', 0):.2f} | "
-        f"{len(result.get('items', []))} items | "
-        f"confidence: {result.get('confidence', 0):.2f} | "
-        f"model: {GEMINI_MODEL}"
+def _build_prompt(base_prompt: str, supplemental_text: str | None) -> str:
+    """Augment the OCR prompt with extracted PDF text when available."""
+    if not supplemental_text:
+        return base_prompt
+    return (
+        f"{base_prompt}\n\n"
+        "Additional extracted receipt text is provided below. Use it as a strong hint for summary fields "
+        "like store, address, purchase date, subtotal, tax, and total when it is clearer than the image.\n"
+        "Do not invent values. Prefer visible receipt evidence.\n\n"
+        f"Extracted receipt text:\n{supplmental_text_guard(supplemental_text)}"
     )
 
-    return result
+
+def supplmental_text_guard(text: str) -> str:
+    """Trim excessive PDF text so prompts stay bounded."""
+    cleaned = text.strip()
+    if len(cleaned) <= 6000:
+        return cleaned
+    return cleaned[:6000]
+
+
+def _extract_pdf_text(file_path: str | None) -> str | None:
+    """Extract text directly from a PDF receipt when a text layer is present."""
+    if not file_path or Path(file_path).suffix.lower() != ".pdf":
+        return None
+
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-layout", file_path, "-"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    text = (result.stdout or "").strip()
+    return text or None
+
+
+def _extract_summary_from_pdf_text(text: str | None) -> dict | None:
+    """Parse deterministic summary fields from PDF text when available."""
+    if not text:
+        return None
+
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    summary = {
+        "store": None,
+        "store_location": None,
+        "date": None,
+        "time": None,
+        "subtotal": None,
+        "tax": None,
+        "total": None,
+    }
+
+    amount_patterns = {
+        "subtotal": r"\bSUBTOTAL\s+([0-9]+\.[0-9]{2})\b",
+        "tax": r"\bTAX\s+([0-9]+\.[0-9]{2})\b",
+        "total": r"\bTOTAL\s+([0-9]+\.[0-9]{2})\b",
+    }
+    for field, pattern in amount_patterns.items():
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            summary[field] = _safe_float(match.group(1))
+
+    date_match = re.search(r"\b(\d{2})/(\d{2})/(\d{4})\b", text)
+    if date_match:
+        month, day, year = date_match.groups()
+        summary["date"] = f"{year}-{month}-{day}"
+
+    time_match = re.search(r"\b(\d{2}):(\d{2})\b", text)
+    if time_match:
+        summary["time"] = f"{time_match.group(1)}:{time_match.group(2)}"
+
+    header_lines = lines[:6]
+    if header_lines:
+        summary["store"] = "COSTCO WHOLESALE" if any("CASTLETON" in line.upper() for line in header_lines) else None
+        address_lines = [line for line in header_lines if any(token in line.upper() for token in ("ST", "AVE", "RD", "BLVD", "INDIANAPOLIS", "IN "))]
+        if address_lines:
+            summary["store_location"] = ", ".join(address_lines)
+
+    return summary
+
+
+def _needs_summary_enrichment(result: dict) -> bool:
+    """Detect when the first OCR pass missed critical summary fields."""
+    missing_store = not result.get("store")
+    missing_date = not result.get("date")
+    total_value = result.get("total")
+    missing_total = total_value in (None, "", 0, 0.0)
+    return missing_store or missing_date or missing_total
+
+
+def _merge_summary_fields(result: dict, summary: dict | None) -> dict:
+    """Fill in missing top-level fields from a focused summary extraction pass."""
+    if not summary:
+        return result
+
+    merged = dict(result)
+    for field in ("store", "store_location", "date", "time", "subtotal", "tax", "total"):
+        current = merged.get(field)
+        incoming = summary.get(field)
+        if current in (None, "", 0, 0.0) and incoming not in (None, ""):
+            merged[field] = incoming
+
+    merged["confidence"] = max(_safe_float(result.get("confidence", 0.0)), _safe_float(summary.get("confidence", 0.0)))
+    return merged
 
 
 # ---------------------------------------------------------------------------

@@ -39,6 +39,8 @@ INITIAL_ADMIN_TOKEN=generate_a_secure_token
 **Optional (for Telegram):**
 ```
 TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_WEBHOOK_BASE_URL=https://grocery.yourdomain.com
+TELEGRAM_WEBHOOK_SECRET=your_random_secret
 ```
 
 ---
@@ -57,6 +59,7 @@ docker-compose ps
 ```
 
 If you are running the backend directly instead of Docker, the Flask app now auto-loads `.env` on startup for local development.
+PDF receipt support requires `pdftoppm` to be available. The Docker image now installs it automatically; on a local host install Poppler if it is missing.
 
 **Expected output:**
 ```
@@ -111,6 +114,11 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/health
 curl -X POST http://localhost:8080/receipts/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "image=@path/to/receipt.jpg"
+
+# Or upload a PDF receipt
+curl -X POST http://localhost:8080/receipts/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@path/to/receipt.pdf"
 ```
 
 ---
@@ -126,7 +134,16 @@ curl -X POST http://localhost:8080/receipts/upload \
 
 ## Step 8: Configure Telegram (Optional)
 
-See [NGINX_PROXY_MANAGER_SETUP.md](NGINX_PROXY_MANAGER_SETUP.md) for webhook routing.
+1. Expose the backend through a public HTTPS URL
+2. Set `TELEGRAM_WEBHOOK_BASE_URL` and `TELEGRAM_WEBHOOK_SECRET` in `.env`
+3. Register the webhook:
+
+```bash
+./.venv/bin/python -m src.backend.configure_telegram_webhook set
+./.venv/bin/python -m src.backend.configure_telegram_webhook status
+```
+
+See [NGINX_PROXY_MANAGER_SETUP.md](NGINX_PROXY_MANAGER_SETUP.md) for proxy routing details.
 
 ---
 

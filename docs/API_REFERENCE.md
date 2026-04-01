@@ -34,18 +34,28 @@ Unauthorized requests receive `401 Unauthorized`.
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/telegram/webhook` | Telegram signature | Receive Telegram bot updates |
-| POST | `/receipts/upload` | Bearer token | Upload receipt image for OCR |
+| POST | `/receipts/upload` | Bearer token | Upload receipt image or PDF for OCR |
 | GET | `/receipts/{id}` | Bearer token | Retrieve receipt details |
+| POST | `/receipts/{id}/reprocess` | Bearer token | Re-run OCR for a stored receipt and refresh review data |
+| POST | `/receipts/{id}/approve` | Bearer token | Approve a review receipt and save it as a purchase |
 
 #### POST `/receipts/upload`
 
-Upload a receipt image for OCR processing.
+Upload a receipt image or PDF for OCR processing.
 
 **Request:** `multipart/form-data`
 ```bash
 curl -X POST http://localhost:8080/receipts/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "image=@receipt.jpg"
+```
+
+The multipart field name remains `image` for both images and PDFs:
+
+```bash
+curl -X POST http://localhost:8080/receipts/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@receipt.pdf"
 ```
 
 **Response (200):**
@@ -63,6 +73,27 @@ curl -X POST http://localhost:8080/receipts/upload \
       {"name": "Organic Milk", "quantity": 1, "unit_price": 3.20, "category": "dairy"}
     ],
     "total": 45.67
+  }
+}
+```
+
+#### POST `/receipts/{id}/reprocess`
+
+Re-runs OCR for an existing stored receipt. Useful for older review receipts that do not yet have stored raw OCR JSON.
+
+#### POST `/receipts/{id}/approve`
+
+Approves a review receipt using either the stored OCR payload or an edited payload you submit.
+
+```json
+{
+  "data": {
+    "store": "Costco Wholesale",
+    "date": "2026-04-01",
+    "total": 361.02,
+    "items": [
+      {"name": "Spring Roll", "quantity": 1, "unit_price": 9.99, "category": "snacks"}
+    ]
   }
 }
 ```

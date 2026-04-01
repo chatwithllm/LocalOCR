@@ -4,7 +4,7 @@ A **privacy-first, local-first** grocery management system for households. Uploa
 
 ## ✨ Features
 
-- **📸 Receipt OCR** — Snap a photo via Telegram or upload directly. Hybrid OCR (Gemini + Ollama fallback) extracts items automatically.
+- **📸 Receipt OCR** — Send a photo or PDF via Telegram or upload directly. Hybrid OCR (Gemini + Ollama fallback) extracts items automatically.
 - **📦 Real-Time Inventory** — Shared household inventory synced across all devices via MQTT in <2 seconds.
 - **💡 Smart Recommendations** — Detects price deals (≥10% discount) and recurring purchase patterns.
 - **📊 Spending Analytics** — Budget tracking, price trends, savings quantification, store comparison.
@@ -33,6 +33,11 @@ curl http://localhost:11434/api/tags  # Ollama
 curl -X POST http://localhost:8080/receipts/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "image=@path/to/receipt.jpg"
+
+# PDF receipts work too
+curl -X POST http://localhost:8080/receipts/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@path/to/receipt.pdf"
 ```
 
 For a current handoff snapshot of what is finished and what still needs work, see [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).

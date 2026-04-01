@@ -51,6 +51,16 @@ Rules:
 """
 
 
+def _safe_float(value, default=0.0):
+    """Return a float for logging even when OCR returns null/string values."""
+    try:
+        if value is None:
+            return float(default)
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 def extract_receipt_via_openai(image_path: str) -> dict:
     """Extract receipt data from an image using OpenAI vision."""
     if not OPENAI_API_KEY:
@@ -99,9 +109,9 @@ def extract_receipt_via_openai(image_path: str) -> dict:
 
     logger.info(
         f"OpenAI OCR: {result.get('store', '?')} | "
-        f"${result.get('total', 0):.2f} | "
+        f"${_safe_float(result.get('total', 0)):.2f} | "
         f"{len(result.get('items', []))} items | "
-        f"confidence: {result.get('confidence', 0):.2f}"
+        f"confidence: {_safe_float(result.get('confidence', 0)):.2f}"
     )
 
     return result

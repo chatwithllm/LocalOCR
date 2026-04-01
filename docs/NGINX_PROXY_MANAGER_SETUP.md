@@ -53,12 +53,25 @@ curl https://grocery.yourdomain.com/health
 ### 5. Register Telegram Webhook
 
 ```bash
-# Replace with your bot token and domain
-curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://grocery.yourdomain.com/telegram/webhook"
+# Set these in .env first:
+# TELEGRAM_BOT_TOKEN=...
+# TELEGRAM_WEBHOOK_BASE_URL=https://grocery.yourdomain.com
+# TELEGRAM_WEBHOOK_SECRET=some-random-secret
+
+# Register webhook from the repo
+./.venv/bin/python -m src.backend.configure_telegram_webhook set
 
 # Verify webhook
-curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
+./.venv/bin/python -m src.backend.configure_telegram_webhook status
 ```
+
+Telegram will POST to:
+
+```text
+https://grocery.yourdomain.com/telegram/webhook
+```
+
+If `TELEGRAM_WEBHOOK_SECRET` is set, the app will validate the `X-Telegram-Bot-Api-Secret-Token` header automatically.
 
 ---
 

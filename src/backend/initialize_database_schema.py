@@ -17,6 +17,7 @@ Key Features:
 
 import os
 import logging
+from sqlalchemy import text
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -230,6 +231,8 @@ class TelegramReceipt(Base):
     status = Column(String(20), nullable=False, default="pending")  # pending, processed, failed, review
     ocr_confidence = Column(Float, nullable=True)
     ocr_engine = Column(String(20), nullable=True)  # "gemini" or "ollama"
+    receipt_type = Column(String(30), nullable=True)
+    raw_ocr_json = Column(Text, nullable=True)
     purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -259,9 +262,26 @@ def initialize_database(database_url=None):
     """Create all tables and return engine + session factory."""
     engine = create_db_engine(database_url)
     Base.metadata.create_all(engine)
+    _ensure_runtime_columns(engine)
     Session = create_session_factory(engine)
     logger.info("Database schema initialized successfully.")
     return engine, Session
+
+
+def _ensure_runtime_columns(engine):
+    """Add a few backward-compatible columns for SQLite dev databases."""
+    with engine.begin() as conn:
+        if engine.dialect.name != "sqlite":
+            return
+
+        existing = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(telegram_receipts)"))
+        }
+        if "receipt_type" not in existing:
+            conn.execute(text("ALTER TABLE telegram_receipts ADD COLUMN receipt_type VARCHAR(30)"))
+        if "raw_ocr_json" not in existing:
+            conn.execute(text("ALTER TABLE telegram_receipts ADD COLUMN raw_ocr_json TEXT"))
 
 
 # ---------------------------------------------------------------------------
