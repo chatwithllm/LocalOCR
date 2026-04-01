@@ -3,6 +3,8 @@
 > **Purpose:** If you need to restart this project from scratch, resume after a break,
 > or hand it off to someone else — this document has everything you need.
 
+> **Current status note:** The original planning checklist below is no longer the best source of truth for runtime status. For the latest verified working state and restart handoff, read [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) first.
+
 ---
 
 ## 1. What This System Does (30-Second Summary)
@@ -51,6 +53,7 @@ Every file in the project and what it does:
 | `PRD.md` | Product requirements — the "what" and "why" |
 | `PROMPT.md` | Implementation guide (24 steps) — the "how" |
 | `CONTINUITY.md` | This file — restart/resume guide |
+| `docs/IMPLEMENTATION_STATUS.md` | Current verified status + restart handoff |
 | `README.md` | Quick start and project overview |
 | `docker-compose.yml` | Service orchestration (backend, MQTT, Ollama) |
 | `Dockerfile` | Backend container image definition |
@@ -65,20 +68,20 @@ Every file in the project and what it does:
 | `initialize_database_schema.py` | Step 2 | ✅ Schema defined |
 | `create_flask_application.py` | Step 3 | ✅ App factory created |
 | `setup_mqtt_connection.py` | Step 4 | ✅ Client singleton |
-| `handle_receipt_upload.py` | Step 5 | ✅ Endpoint stub |
+| `handle_receipt_upload.py` | Step 5 | ✅ Upload endpoint working |
 | `configure_telegram_webhook.py` | Step 6 | 🔲 Stub only |
 | `handle_telegram_messages.py` | Step 8 | 🔲 Stub only |
-| `call_gemini_vision_api.py` | Step 9 | 🔲 Stub + prompt |
-| `call_ollama_vision_api.py` | Step 10 | 🔲 Stub + prompt |
-| `extract_receipt_data.py` | Step 11 | 🔲 Stub + logic outline |
+| `call_gemini_vision_api.py` | Step 9 | ✅ Working via `google-genai` |
+| `call_ollama_vision_api.py` | Step 10 | 🟡 Fallback implemented, not recently re-validated |
+| `extract_receipt_data.py` | Step 11 | ✅ Hybrid OCR pipeline working |
 | `save_receipt_images.py` | Step 12 | 🔲 Stub only |
-| `manage_product_catalog.py` | Step 13 | 🔲 Endpoint stubs |
-| `manage_inventory.py` | Step 14 | 🔲 Endpoint stubs |
-| `check_inventory_thresholds.py` | Step 15 | 🔲 Stub only |
-| `generate_recommendations.py` | Step 16 | 🔲 Algorithm outlined |
-| `schedule_daily_recommendations.py` | Step 17 | 🔲 Scheduler stub |
-| `calculate_spending_analytics.py` | Step 18 | 🔲 Endpoint stubs |
-| `manage_household_budget.py` | Step 19 | 🔲 Endpoint stubs |
+| `manage_product_catalog.py` | Step 13 | ✅ CRUD working |
+| `manage_inventory.py` | Step 14 | ✅ CRUD working |
+| `check_inventory_thresholds.py` | Step 15 | 🟡 Partial / not fully validated |
+| `generate_recommendations.py` | Step 16 | 🟡 Endpoint working, needs richer data validation |
+| `schedule_daily_recommendations.py` | Step 17 | 🟡 Scheduler present, not fully validated |
+| `calculate_spending_analytics.py` | Step 18 | ✅ Endpoints working |
+| `manage_household_budget.py` | Step 19 | ✅ Endpoints working |
 | `publish_mqtt_events.py` | Step 20 | ✅ Publish functions |
 
 ### Config Files (`config/`)
@@ -118,8 +121,8 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Step 2: Database schema (`initialize_database_schema.py` — models defined)
 - [x] Step 3: Flask app (`create_flask_application.py` — app factory + auth)
 - [x] Step 4: MQTT connection (`setup_mqtt_connection.py` — client ready)
-- [x] Step 5: Stub upload endpoint (`handle_receipt_upload.py` — endpoint ready)
-- [ ] Wire blueprints into Flask app (uncomment registrations in `create_flask_application.py`)
+- [x] Step 5: Upload endpoint (`handle_receipt_upload.py` — authenticated and working)
+- [x] Wire blueprints into Flask app
 - [ ] Run `alembic init` and create initial migration
 - [ ] Test `docker-compose up` end-to-end
 
@@ -130,26 +133,27 @@ Use this to track implementation progress. Check off items as you go.
 - [ ] Test: Send photo → receive confirmation
 
 ### Phase 3: Hybrid OCR System
-- [ ] Step 9: Implement Gemini Vision API call
-- [ ] Step 10: Implement Ollama LLaVA call
-- [ ] Step 11: Wire hybrid fallback logic
-- [ ] Step 12: Implement image storage + retention
-- [ ] Test: Upload receipt → verify extracted JSON
+- [x] Step 9: Implement Gemini Vision API call
+- [x] Step 10: Implement Ollama LLaVA fallback call
+- [x] Step 11: Wire hybrid fallback logic
+- [x] Step 12: Implement image storage + retention
+- [x] Test: Upload receipt → verify extracted JSON
 
 ### Phase 4: Inventory Management *(parallel OK)*
-- [ ] Step 13: Implement product CRUD
-- [ ] Step 14: Implement inventory tracking + MQTT publish
+- [x] Step 13: Implement product CRUD
+- [x] Step 14: Implement inventory tracking + MQTT publish
 - [ ] Step 15: Implement low-stock alerts
-- [ ] Test: Add/consume items → verify MQTT events
+- [x] Test: Add/consume items
+- [ ] Verify MQTT events in Home Assistant or broker consumer
 
 ### Phase 5: Smart Recommendations *(parallel OK)*
-- [ ] Step 16: Implement recommendation engine
-- [ ] Step 17: Implement daily push scheduler
+- [x] Step 16: Implement recommendation engine
+- [ ] Step 17: Fully validate daily push scheduler
 - [ ] Test: Seed price data → verify deal detection
 
 ### Phase 6: Analytics & Spending *(parallel OK)*
-- [ ] Step 18: Implement spending analytics
-- [ ] Step 19: Implement budget management
+- [x] Step 18: Implement spending analytics
+- [x] Step 19: Implement budget management
 - [ ] Test: Seed purchases → verify spending calculations
 
 ### Phase 7: Home Assistant
@@ -183,11 +187,12 @@ docker-compose up -d
 ```
 
 ### Resuming after a break
-1. Read this file (CONTINUITY.md)
-2. Check the Phase Checklist (section 4) for current progress
-3. Open `PROMPT.md` and find the next unchecked step
-4. Each step has: file path, what to do, key considerations, testing
-5. Implement, test, check off
+1. Read `docs/IMPLEMENTATION_STATUS.md`
+2. Read this file (`CONTINUITY.md`)
+3. Check the Phase Checklist (section 4) for current progress
+4. Open `PROMPT.md` and find the next unchecked step
+5. Each step has: file path, what to do, key considerations, testing
+6. Implement, test, check off
 
 ### Handing off to someone
 1. Share this repo
@@ -222,6 +227,7 @@ Decisions made during planning — context for anyone picking this up:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `GEMINI_API_KEY` | ✅ | — | Google Gemini Vision API key |
+| `GEMINI_MODEL` | ❌ | `gemini-2.5-flash` | Gemini model name used by OCR |
 | `TELEGRAM_BOT_TOKEN` | ❌ | — | Telegram bot token (only for Phase 2) |
 | `MQTT_BROKER` | ❌ | `mqtt` | MQTT broker hostname |
 | `MQTT_PORT` | ❌ | `1883` | MQTT broker port |

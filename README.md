@@ -20,7 +20,7 @@ cd "Inventory Management"
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env with your Gemini API key, Telegram bot token, etc.
+# Edit .env with your Gemini API key, initial admin token, Telegram bot token, etc.
 
 # 3. Start all services
 docker-compose up -d
@@ -34,6 +34,8 @@ curl -X POST http://localhost:8080/receipts/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "image=@path/to/receipt.jpg"
 ```
+
+For a current handoff snapshot of what is finished and what still needs work, see [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## 📁 Project Structure
 
@@ -74,6 +76,7 @@ curl -X POST http://localhost:8080/receipts/upload \
 | [PRD.md](PRD.md) | Product requirements & acceptance criteria |
 | [PROMPT.md](PROMPT.md) | 24-step implementation guide |
 | [CONTINUITY.md](CONTINUITY.md) | Restart/resume project from any point |
+| [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) | Current working status + restart handoff |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture details |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | API endpoint documentation |
 | [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Step-by-step deployment |

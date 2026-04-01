@@ -14,6 +14,13 @@ import hashlib
 import logging
 from functools import wraps
 
+# Auto-load .env file (works locally; in Docker env vars come from docker-compose)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)  # Don't override vars already set in environment
+except ImportError:
+    pass  # python-dotenv not installed — use system env vars
+
 from flask import Flask, jsonify, request, g, send_from_directory
 
 from src.backend.initialize_database_schema import (

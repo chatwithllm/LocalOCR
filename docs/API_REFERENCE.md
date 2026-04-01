@@ -48,18 +48,22 @@ curl -X POST http://localhost:8080/receipts/upload \
   -F "image=@receipt.jpg"
 ```
 
-**Response (202):**
+**Response (200):**
 ```json
 {
   "status": "processed",
-  "store": "Whole Foods",
-  "date": "2026-04-01",
-  "items": [
-    {"name": "Organic Milk", "quantity": 1, "unit_price": 3.20, "category": "dairy"}
-  ],
-  "total": 45.67,
+  "source": "upload",
   "confidence": 0.92,
-  "ocr_engine": "gemini"
+  "ocr_engine": "gemini",
+  "purchase_id": 10,
+  "data": {
+    "store": "Whole Foods",
+    "date": "2026-04-01",
+    "items": [
+      {"name": "Organic Milk", "quantity": 1, "unit_price": 3.20, "category": "dairy"}
+    ],
+    "total": 45.67
+  }
 }
 ```
 
@@ -87,6 +91,27 @@ curl -X POST http://localhost:8080/receipts/upload \
 | PUT | `/inventory/{id}/update` | Bearer token | Set quantity directly |
 | DELETE | `/inventory/{id}` | Bearer token | Remove from inventory |
 
+#### GET `/inventory`
+
+**Response:**
+```json
+{
+  "count": 2,
+  "inventory": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "product_name": "Milk",
+      "category": "dairy",
+      "quantity": 2.0,
+      "location": "Fridge",
+      "threshold": 1.0,
+      "is_low": false
+    }
+  ]
+}
+```
+
 #### POST `/inventory/add-item`
 
 ```json
@@ -106,8 +131,31 @@ curl -X POST http://localhost:8080/receipts/upload \
 | GET | `/analytics/spending?period=monthly` | Bearer token | Spending by period |
 | GET | `/analytics/spending?category=dairy` | Bearer token | Spending by category |
 | GET | `/analytics/price-history?product_id=1` | Bearer token | Price trends |
-| GET | `/analytics/deals-captured?period=monthly` | Bearer token | Savings from deals |
+| GET | `/analytics/deals-captured?months=1` | Bearer token | Savings from deals |
 | GET | `/analytics/store-comparison` | Bearer token | Cross-store price comparison |
+
+#### GET `/analytics/spending?period=monthly`
+
+**Response:**
+```json
+{
+  "period": "monthly",
+  "months_back": 6,
+  "grand_total": 83.48,
+  "spending_by_period": {
+    "2025-11": {
+      "total": 83.48,
+      "count": 1
+    }
+  },
+  "category_breakdown": {
+    "snacks": {
+      "total": 7.44,
+      "count": 2
+    }
+  }
+}
+```
 
 ---
 

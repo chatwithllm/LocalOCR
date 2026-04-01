@@ -32,6 +32,7 @@ nano .env  # or vim, code, etc.
 **Required `.env` values:**
 ```
 GEMINI_API_KEY=your_actual_key_here
+GEMINI_MODEL=gemini-2.5-flash
 INITIAL_ADMIN_TOKEN=generate_a_secure_token
 ```
 
@@ -54,6 +55,8 @@ docker-compose logs -f
 # Verify all services are healthy
 docker-compose ps
 ```
+
+If you are running the backend directly instead of Docker, the Flask app now auto-loads `.env` on startup for local development.
 
 **Expected output:**
 ```
@@ -145,6 +148,9 @@ docker exec grocery-backend /app/scripts/restore_from_backup.sh /data/backups/gr
 ### Update
 ```bash
 git pull
+cp .env.example .env  # only if setting up on a fresh machine
+edit .env             # keep secrets local; never commit them
+pip install -r requirements.txt
 docker-compose build
 docker-compose up -d
 ```
