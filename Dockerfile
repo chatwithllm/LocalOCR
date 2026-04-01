@@ -1,0 +1,40 @@
+# Grocery Inventory & Savings Management System
+# Backend Dockerfile (PROMPT Step 1)
+# Compatible with Mac Silicon (ARM64) and x86_64
+
+FROM python:3.11-slim AS base
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_PORT=8080
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY src/ /app/src/
+COPY alembic/ /app/alembic/ 
+COPY alembic.ini /app/alembic.ini
+
+# Create data directories (volumes will override these)
+RUN mkdir -p /data/db /data/receipts /data/backups
+
+# Expose Flask port
+EXPOSE 8080
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the application
+CMD ["python", "-m", "src.backend.create_flask_application"]

@@ -1,0 +1,93 @@
+# 🛒 Grocery Inventory & Savings Management System
+
+A **privacy-first, local-first** grocery management system for households. Upload receipts, track inventory across devices, get smart recommendations, and monitor spending — all self-hosted with zero ongoing costs.
+
+## ✨ Features
+
+- **📸 Receipt OCR** — Snap a photo via Telegram or upload directly. Hybrid OCR (Gemini + Ollama fallback) extracts items automatically.
+- **📦 Real-Time Inventory** — Shared household inventory synced across all devices via MQTT in <2 seconds.
+- **💡 Smart Recommendations** — Detects price deals (≥10% discount) and recurring purchase patterns.
+- **📊 Spending Analytics** — Budget tracking, price trends, savings quantification, store comparison.
+- **🏠 Home Assistant Dashboard** — Unified view with inventory, alerts, recommendations, and analytics cards.
+- **🔒 Privacy-First** — All data stays on your local network. SQLite database, Docker deployment, full backup/restore.
+
+## 🚀 Quick Start
+
+```bash
+# 1. Clone the repository
+git clone <your-repo-url>
+cd "Inventory Management"
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your Gemini API key, Telegram bot token, etc.
+
+# 3. Start all services
+docker-compose up -d
+
+# 4. Verify services are running
+curl http://localhost:8080/health     # Backend
+curl http://localhost:11434/api/tags  # Ollama
+
+# 5. Upload a test receipt
+curl -X POST http://localhost:8080/receipts/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@path/to/receipt.jpg"
+```
+
+## 📁 Project Structure
+
+```
+├── PRD.md                    # Product requirements
+├── PROMPT.md                 # Implementation guide (24 steps)
+├── CONTINUITY.md             # Restart & resume documentation
+├── docker-compose.yml        # Service orchestration
+├── Dockerfile                # Backend container
+├── requirements.txt          # Python dependencies
+├── .env.example              # Environment variable template
+├── src/backend/              # Flask API (18 modules)
+├── config/                   # MQTT, Home Assistant configs
+├── scripts/                  # Backup & restore scripts
+├── tests/                    # End-to-end tests
+├── docs/                     # Architecture, API, deployment guides
+└── alembic/                  # Database migrations
+```
+
+## 🏗️ Architecture
+
+```
+📱 Telegram / Upload ──→ Flask API (port 8080) ──→ Gemini / Ollama OCR
+                              │
+                    ┌─────────┼─────────┐
+                    ▼         ▼         ▼
+               Inventory  Analytics  Recommendations
+                    │         │         │
+                    └─────────┼─────────┘
+                              ▼
+                    MQTT (port 1883) ──→ Home Assistant
+```
+
+## 📚 Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [PRD.md](PRD.md) | Product requirements & acceptance criteria |
+| [PROMPT.md](PROMPT.md) | 24-step implementation guide |
+| [CONTINUITY.md](CONTINUITY.md) | Restart/resume project from any point |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture details |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | API endpoint documentation |
+| [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Step-by-step deployment |
+
+## 🔧 Tech Stack
+
+- **Backend:** Python 3.11 + Flask
+- **Database:** SQLite (WAL mode) + Alembic migrations
+- **OCR:** Google Gemini Vision API + Ollama LLaVA (fallback)
+- **Real-Time:** MQTT (Mosquitto)
+- **Frontend:** Home Assistant YAML dashboard
+- **Deployment:** Docker Compose
+- **Cost:** $0/month (free Gemini tier + self-hosted)
+
+## 📄 License
+
+Private project. All rights reserved.

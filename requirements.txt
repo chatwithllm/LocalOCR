@@ -1,0 +1,31 @@
+# Flask Backend
+Flask==3.1.0
+gunicorn==23.0.0
+
+# Database
+SQLAlchemy==2.0.36
+alembic==1.14.1
+
+# MQTT
+paho-mqtt==2.1.0
+
+# OCR - Gemini Vision API
+google-generativeai==0.8.4
+
+# OCR - Ollama (HTTP requests, no special library needed)
+requests==2.32.3
+
+# Telegram Bot
+python-telegram-bot==21.10
+
+# Image Processing
+Pillow==11.1.0
+
+# Scheduling (daily recommendations, threshold checks)
+APScheduler==3.10.4
+
+# Real-Time WebSocket (for future standalone UI option)
+Flask-SocketIO==5.4.1
+
+# Utilities
+python-dotenv==1.0.1

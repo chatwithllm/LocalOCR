@@ -1,0 +1,52 @@
+# Home Assistant Automations
+# PROMPT Reference: Phase 7, Step 22
+#
+# These automations respond to MQTT events from the grocery backend.
+# Import into your Home Assistant automations.yaml.
+
+# TODO: Implement automations
+
+# --- Automation 1: Low-Stock Alert → Notify Household ---
+# - alias: "Grocery - Low Stock Alert"
+#   trigger:
+#     - platform: mqtt
+#       topic: "home/grocery/alerts/low_stock"
+#   action:
+#     - service: notify.notify
+#       data:
+#         title: "🔔 Low Stock Alert"
+#         message: "{{ trigger.payload_json.name }} is running low ({{ trigger.payload_json.current }} remaining)"
+
+# --- Automation 2: Daily Recommendations → Push at 8 AM ---
+# - alias: "Grocery - Daily Recommendations"
+#   trigger:
+#     - platform: mqtt
+#       topic: "home/grocery/recommendations/daily"
+#   action:
+#     - service: notify.notify
+#       data:
+#         title: "🛒 Daily Grocery Recommendations"
+#         message: "{{ trigger.payload_json.count }} suggestions for today"
+
+# --- Automation 3: Budget Alert → Notify at 80% ---
+# - alias: "Grocery - Budget Alert"
+#   trigger:
+#     - platform: mqtt
+#       topic: "home/grocery/alerts/budget"
+#   action:
+#     - service: notify.notify
+#       data:
+#         title: "⚠️ Budget Alert"
+#         message: "{{ trigger.payload_json.percentage }}% of grocery budget spent (${{ trigger.payload_json.spent }} of ${{ trigger.payload_json.budget_amount }})"
+
+# --- Automation 4: Weekly Summary ---
+# - alias: "Grocery - Weekly Summary"
+#   trigger:
+#     - platform: time
+#       at: "09:00:00"
+#   condition:
+#     - condition: time
+#       weekday:
+#         - sun
+#   action:
+#     - service: rest_command.grocery_weekly_summary

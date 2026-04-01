@@ -1,0 +1,51 @@
+# Home Assistant Dashboard Configuration
+# PROMPT Reference: Phase 7, Step 21
+#
+# This YAML file defines the Lovelace dashboard for the Grocery Management System.
+# Import this into your Home Assistant instance.
+#
+# Prerequisites:
+#   - MQTT integration configured in Home Assistant
+#   - MQTT broker accessible at mqtt:1883
+
+# TODO: Implement dashboard cards
+# Components needed:
+#   1. Inventory Card — grid/list of products with quantity, location
+#   2. Recommendations Card — daily suggestions (deals + seasonal)
+#   3. Alerts Card — low-stock warnings, budget status
+#   4. Analytics Card — spending trends, budget vs actual
+#   5. Add Item Card — manual entry form
+
+title: Grocery Manager
+views:
+  - title: Overview
+    path: grocery
+    icon: mdi:cart
+    cards:
+      # --- Inventory Card ---
+      - type: markdown
+        title: "📦 Inventory"
+        content: >
+          Inventory card not yet configured.
+          Requires MQTT sensors for home/grocery/inventory/# topics.
+
+      # --- Recommendations Card ---
+      - type: markdown
+        title: "💡 Recommendations"
+        content: >
+          Recommendations card not yet configured.
+          Requires MQTT sensor for home/grocery/recommendations/daily topic.
+
+      # --- Alerts Card ---
+      - type: markdown
+        title: "🔔 Alerts"
+        content: >
+          Alerts card not yet configured.
+          Requires MQTT sensors for home/grocery/alerts/# topics.
+
+      # --- Analytics Card ---
+      - type: markdown
+        title: "📊 Analytics"
+        content: >
+          Analytics card not yet configured.
+          Requires REST sensors pointing to /analytics/* endpoints.

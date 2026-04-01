@@ -1,0 +1,277 @@
+# CONTINUITY.md — Project Restart & Resume Guide
+
+> **Purpose:** If you need to restart this project from scratch, resume after a break,
+> or hand it off to someone else — this document has everything you need.
+
+---
+
+## 1. What This System Does (30-Second Summary)
+
+A **self-hosted grocery management system** that:
+- Processes receipt photos via OCR (Gemini AI + Ollama fallback)
+- Maintains shared household inventory with real-time sync
+- Detects deals and recurring purchase patterns
+- Tracks spending and budgets
+- Runs entirely locally via Docker Compose — zero cloud costs
+
+**Input:** Receipt photos (via Telegram or direct upload)
+**Output:** Structured inventory, recommendations, and spending analytics
+**UI:** Home Assistant dashboard (MQTT-connected)
+
+---
+
+## 2. Architecture at a Glance
+
+```
+Telegram / Upload → Flask API (port 8080) → Gemini / Ollama OCR
+                         │
+               ┌─────────┼─────────┐
+               ▼         ▼         ▼
+          Inventory  Analytics  Recommendations
+               │         │         │
+               └─────────┼─────────┘
+                         ▼
+               MQTT (port 1883) → Home Assistant
+                         │
+               SQLite DB (WAL mode)
+```
+
+**Stack:** Python 3.11, Flask, SQLAlchemy, SQLite, Mosquitto MQTT, Docker Compose
+**See:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details
+
+---
+
+## 3. File Map
+
+Every file in the project and what it does:
+
+### Root Files
+| File | Purpose |
+|------|---------|
+| `PRD.md` | Product requirements — the "what" and "why" |
+| `PROMPT.md` | Implementation guide (24 steps) — the "how" |
+| `CONTINUITY.md` | This file — restart/resume guide |
+| `README.md` | Quick start and project overview |
+| `docker-compose.yml` | Service orchestration (backend, MQTT, Ollama) |
+| `Dockerfile` | Backend container image definition |
+| `requirements.txt` | Python dependencies |
+| `.env.example` | Environment variable template |
+| `.gitignore` | Git ignore rules |
+
+### Backend Modules (`src/backend/`)
+| File | PROMPT Step | Status |
+|------|-------------|--------|
+| `__init__.py` | — | ✅ Done |
+| `initialize_database_schema.py` | Step 2 | ✅ Schema defined |
+| `create_flask_application.py` | Step 3 | ✅ App factory created |
+| `setup_mqtt_connection.py` | Step 4 | ✅ Client singleton |
+| `handle_receipt_upload.py` | Step 5 | ✅ Endpoint stub |
+| `configure_telegram_webhook.py` | Step 6 | 🔲 Stub only |
+| `handle_telegram_messages.py` | Step 8 | 🔲 Stub only |
+| `call_gemini_vision_api.py` | Step 9 | 🔲 Stub + prompt |
+| `call_ollama_vision_api.py` | Step 10 | 🔲 Stub + prompt |
+| `extract_receipt_data.py` | Step 11 | 🔲 Stub + logic outline |
+| `save_receipt_images.py` | Step 12 | 🔲 Stub only |
+| `manage_product_catalog.py` | Step 13 | 🔲 Endpoint stubs |
+| `manage_inventory.py` | Step 14 | 🔲 Endpoint stubs |
+| `check_inventory_thresholds.py` | Step 15 | 🔲 Stub only |
+| `generate_recommendations.py` | Step 16 | 🔲 Algorithm outlined |
+| `schedule_daily_recommendations.py` | Step 17 | 🔲 Scheduler stub |
+| `calculate_spending_analytics.py` | Step 18 | 🔲 Endpoint stubs |
+| `manage_household_budget.py` | Step 19 | 🔲 Endpoint stubs |
+| `publish_mqtt_events.py` | Step 20 | ✅ Publish functions |
+
+### Config Files (`config/`)
+| File | Purpose |
+|------|---------|
+| `mosquitto/mosquitto.conf` | MQTT broker configuration |
+| `home_assistant_dashboard_config.yaml` | HA dashboard (stub) |
+| `home_assistant_automations.yaml` | HA automations (stub) |
+
+### Scripts (`scripts/`)
+| File | Purpose |
+|------|---------|
+| `backup_database_and_volumes.sh` | Daily backup script |
+| `restore_from_backup.sh` | Restore from backup archive |
+
+### Tests (`tests/`)
+| File | Purpose |
+|------|---------|
+| `test_full_receipt_flow.py` | E2E test stubs (10 scenarios) |
+
+### Documentation (`docs/`)
+| File | Purpose |
+|------|---------|
+| `ARCHITECTURE.md` | System diagram + design decisions |
+| `API_REFERENCE.md` | All endpoints, auth, MQTT topics |
+| `DEPLOYMENT_GUIDE.md` | Zero-to-running setup steps |
+| `NGINX_PROXY_MANAGER_SETUP.md` | Telegram webhook routing |
+
+---
+
+## 4. Phase Checklist — Progress Tracker
+
+Use this to track implementation progress. Check off items as you go.
+
+### Phase 1: Foundation & Infrastructure
+- [x] Step 1: Docker Compose stack (`docker-compose.yml`, `Dockerfile`)
+- [x] Step 2: Database schema (`initialize_database_schema.py` — models defined)
+- [x] Step 3: Flask app (`create_flask_application.py` — app factory + auth)
+- [x] Step 4: MQTT connection (`setup_mqtt_connection.py` — client ready)
+- [x] Step 5: Stub upload endpoint (`handle_receipt_upload.py` — endpoint ready)
+- [ ] Wire blueprints into Flask app (uncomment registrations in `create_flask_application.py`)
+- [ ] Run `alembic init` and create initial migration
+- [ ] Test `docker-compose up` end-to-end
+
+### Phase 2: Telegram Integration
+- [ ] Step 6: Configure Telegram webhook
+- [ ] Step 7: Setup Nginx Proxy Manager route
+- [ ] Step 8: Implement Telegram webhook handler
+- [ ] Test: Send photo → receive confirmation
+
+### Phase 3: Hybrid OCR System
+- [ ] Step 9: Implement Gemini Vision API call
+- [ ] Step 10: Implement Ollama LLaVA call
+- [ ] Step 11: Wire hybrid fallback logic
+- [ ] Step 12: Implement image storage + retention
+- [ ] Test: Upload receipt → verify extracted JSON
+
+### Phase 4: Inventory Management *(parallel OK)*
+- [ ] Step 13: Implement product CRUD
+- [ ] Step 14: Implement inventory tracking + MQTT publish
+- [ ] Step 15: Implement low-stock alerts
+- [ ] Test: Add/consume items → verify MQTT events
+
+### Phase 5: Smart Recommendations *(parallel OK)*
+- [ ] Step 16: Implement recommendation engine
+- [ ] Step 17: Implement daily push scheduler
+- [ ] Test: Seed price data → verify deal detection
+
+### Phase 6: Analytics & Spending *(parallel OK)*
+- [ ] Step 18: Implement spending analytics
+- [ ] Step 19: Implement budget management
+- [ ] Test: Seed purchases → verify spending calculations
+
+### Phase 7: Home Assistant
+- [ ] Step 20: Wire MQTT publisher to all modules
+- [ ] Step 21: Build HA dashboard YAML
+- [ ] Step 22: Create HA automations
+- [ ] Test: Change inventory → see HA update
+
+### Phase 8: Backup & Portability
+- [ ] Step 23: Test backup script
+- [ ] Step 23: Test restore script on clean machine
+- [ ] Setup cron job for daily backups
+
+### Phase 9: Testing & Validation
+- [ ] Step 24: Run E2E tests
+- [ ] All 10 test scenarios passing
+- [ ] Documentation review complete
+
+---
+
+## 5. How to Resume from Any Point
+
+### Fresh start (new machine)
+```bash
+git clone https://github.com/chatwithllm/LocalOCR.git
+cd LocalOCR
+cp .env.example .env
+# Edit .env with your keys
+docker-compose up -d
+# Check Phase Checklist above for what to implement next
+```
+
+### Resuming after a break
+1. Read this file (CONTINUITY.md)
+2. Check the Phase Checklist (section 4) for current progress
+3. Open `PROMPT.md` and find the next unchecked step
+4. Each step has: file path, what to do, key considerations, testing
+5. Implement, test, check off
+
+### Handing off to someone
+1. Share this repo
+2. Point them to CONTINUITY.md first
+3. PRD.md for "what" / PROMPT.md for "how"
+4. Phase Checklist shows current state
+
+---
+
+## 6. Key Decisions Log
+
+Decisions made during planning — context for anyone picking this up:
+
+| # | Decision | Rationale | Alternatives Considered |
+|---|----------|-----------|------------------------|
+| 1 | **SQLite + WAL mode** over PostgreSQL | Zero config, portable, WAL handles ≤5 concurrent users | PostgreSQL (overkill for household scale) |
+| 2 | **Gemini + Ollama hybrid** OCR | Free cloud accuracy + offline fallback | Tesseract (poor receipt accuracy), Gemini only (no offline) |
+| 3 | **Scaled confidence formulas** (×5, ×2.5) | Raw formulas produced scores too low for the 0.70 threshold | Lower threshold to 0.10 (too noisy) |
+| 4 | **0.40 confidence threshold** | After scaling, 0.40 ≈ a ~8% discount (deals) or 16% overdue (seasonal) | 0.70 (missed too many signals), 0.20 (too noisy) |
+| 5 | **Bearer token auth** | Simple, stateless, no session management | OAuth2 (overkill), basic auth (less flexible) |
+| 6 | **Docker-first development** (Phase 1) | Prevents "works on my machine" issues at deployment | Docker at end (Phase 8, caused integration issues) |
+| 7 | **Stub upload endpoint** | Enables OCR testing without Telegram/Nginx/SSL | Wait for Telegram setup (blocked testing) |
+| 8 | **MQTT for real-time sync** | Home Assistant native integration | WebSockets (not HA native), polling (too slow) |
+| 9 | **Alembic migrations** | Safe schema changes post-launch | Manual ALTER TABLE (fragile, error-prone) |
+| 10 | **12-month image retention** | Balance storage vs audit trail | Keep forever (disk growth), 6 months (too short) |
+| 11 | **Phases 4-6 parallelizable** | Independent data consumers, enables parallel development | Sequential (slower, unnecessary dependency) |
+
+---
+
+## 7. Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GEMINI_API_KEY` | ✅ | — | Google Gemini Vision API key |
+| `TELEGRAM_BOT_TOKEN` | ❌ | — | Telegram bot token (only for Phase 2) |
+| `MQTT_BROKER` | ❌ | `mqtt` | MQTT broker hostname |
+| `MQTT_PORT` | ❌ | `1883` | MQTT broker port |
+| `FLASK_PORT` | ❌ | `8080` | Flask API port |
+| `FLASK_ENV` | ❌ | `development` | Flask environment |
+| `DATABASE_URL` | ❌ | `sqlite:////data/db/grocery.db` | SQLAlchemy DB URL |
+| `OLLAMA_ENDPOINT` | ❌ | `http://ollama:11434` | Ollama API endpoint |
+| `RECOMMENDATION_TIME` | ❌ | `08:00` | Daily recommendation push time |
+| `RECEIPT_RETENTION_MONTHS` | ❌ | `12` | Image retention period |
+| `INITIAL_ADMIN_TOKEN` | ✅ | — | First-run admin token |
+
+---
+
+## 8. Known Gotchas
+
+1. **SQLite WAL mode must be set on EVERY connection** — use `event.listen(engine, "connect", ...)` in SQLAlchemy, not a one-time PRAGMA
+2. **Ollama first start is slow** — model download (~2GB) happens on first `ollama pull`
+3. **Gemini 429 errors** — trigger Ollama fallback, don't retry Gemini immediately
+4. **MQTT retain flag** — set to True for inventory state so Home Assistant sees last state on reconnect
+5. **Telegram webhook timeout** — must respond within 30 seconds or Telegram retries
+6. **Docker Compose `mqtt` service name** — use `mqtt` not `localhost` when connecting from backend container
+7. **SQLite database path** — must be on a Docker volume (`/data/db/`), not inside the container filesystem
+
+---
+
+## 9. Useful Commands
+
+```bash
+# Start everything
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+docker-compose logs -f mqtt
+
+# Rebuild after code changes
+docker-compose build backend && docker-compose up -d backend
+
+# Run tests
+docker exec grocery-backend pytest tests/ -v
+
+# Database shell
+docker exec grocery-backend python -c "from src.backend.initialize_database_schema import *; print('Schema OK')"
+
+# MQTT test publish
+docker exec grocery-mqtt mosquitto_pub -t "test" -m "hello"
+
+# Ollama model status
+docker exec grocery-ollama ollama list
+
+# Backup
+docker exec grocery-backend bash /app/scripts/backup_database_and_volumes.sh
+```
