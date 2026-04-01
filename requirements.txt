@@ -10,7 +10,7 @@ alembic==1.14.1
 paho-mqtt==2.1.0
 
 # OCR - Gemini Vision API
-google-generativeai==0.8.4
+google-genai>=1.30.0
 
 # OCR - OpenAI Vision API
 openai>=1.51.0

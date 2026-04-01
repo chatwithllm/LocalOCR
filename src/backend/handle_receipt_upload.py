@@ -18,6 +18,8 @@ from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
 
+from src.backend.create_flask_application import require_auth
+
 logger = logging.getLogger(__name__)
 
 receipts_bp = Blueprint("receipts", __name__, url_prefix="/receipts")
@@ -45,6 +47,7 @@ def _get_receipts_root() -> str:
 
 
 @receipts_bp.route("/upload", methods=["POST"])
+@require_auth
 def upload_receipt():
     """Upload a receipt image for OCR processing.
 
@@ -54,8 +57,6 @@ def upload_receipt():
     Returns:
         JSON with extracted receipt data or error message.
     """
-    from src.backend.create_flask_application import require_auth
-
     # Validate file presence
     if "image" not in request.files:
         return jsonify({"error": "No image file provided. Use 'image' field."}), 400
@@ -121,9 +122,9 @@ def upload_receipt():
 
 
 @receipts_bp.route("/<int:receipt_id>", methods=["GET"])
+@require_auth
 def get_receipt(receipt_id):
     """Retrieve details for a specific receipt/purchase."""
-    from src.backend.create_flask_application import require_auth
     from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store
 
     session = g.db_session

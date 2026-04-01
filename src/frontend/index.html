@@ -200,15 +200,15 @@
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="logo">🛒 <span>Grocery</span></div>
-    <div class="nav-item active" onclick="nav('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
-    <div class="nav-item" onclick="nav('inventory')"><span class="nav-icon">📦</span> Inventory</div>
-    <div class="nav-item" onclick="nav('products')"><span class="nav-icon">🏷️</span> Products</div>
-    <div class="nav-item" onclick="nav('upload')"><span class="nav-icon">📸</span> Upload Receipt</div>
-    <div class="nav-item" onclick="nav('budget')"><span class="nav-icon">💰</span> Budget</div>
-    <div class="nav-item" onclick="nav('analytics')"><span class="nav-icon">📈</span> Analytics</div>
-    <div class="nav-item" onclick="nav('recs')"><span class="nav-icon">💡</span> Recommendations</div>
+    <div class="nav-item active" onclick="nav('dashboard', this)"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" onclick="nav('inventory', this)"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item" onclick="nav('products', this)"><span class="nav-icon">🏷️</span> Products</div>
+    <div class="nav-item" onclick="nav('upload', this)"><span class="nav-icon">📸</span> Upload Receipt</div>
+    <div class="nav-item" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
+    <div class="nav-item" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item" onclick="nav('recs', this)"><span class="nav-icon">💡</span> Recommendations</div>
     <div style="flex:1"></div>
-    <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙️</span> Settings</div>
+    <div class="nav-item" onclick="nav('settings', this)"><span class="nav-icon">⚙️</span> Settings</div>
   </nav>
 
   <!-- Main -->
@@ -395,6 +395,44 @@
 let API_BASE = localStorage.getItem('api_base') || 'http://localhost:8080';
 let TOKEN = localStorage.getItem('api_token') || '';
 
+function getInventoryItems(data) {
+  return data?.items || data?.inventory || [];
+}
+
+function getSpendingPeriods(data) {
+  const periods = data?.spending_by_period;
+  if (!periods) return [];
+  if (Array.isArray(periods)) return periods;
+  return Object.entries(periods)
+    .map(([period, values]) => ({ period, ...values }))
+    .sort((a, b) => b.period.localeCompare(a.period));
+}
+
+function getReceiptItems(data) {
+  return data?.items || data?.data?.items || [];
+}
+
+function getRecommendationType(rec) {
+  return rec?.type || rec?.reason || 'other';
+}
+
+function normalizeBadge(value, fallback = 'other') {
+  return String(value || fallback).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || fallback;
+}
+
+function formatLabel(value, fallback = 'Other') {
+  const text = String(value || '').trim();
+  if (!text) return fallback;
+  if (text === text.toUpperCase()) return text;
+  return text
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function formatMoney(value) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
 function getHeaders() {
   return { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 }
@@ -410,11 +448,11 @@ async function api(path, opts = {}) {
 // ============================================================
 // Navigation
 // ============================================================
-function nav(page) {
+function nav(page, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  event.currentTarget.classList.add('active');
+  el?.classList.add('active');
   if (page === 'dashboard') loadDashboard();
   if (page === 'inventory') loadInventory();
   if (page === 'products') loadProducts();
@@ -496,7 +534,7 @@ async function loadDashboard() {
     if (prods) document.getElementById('stat-products').textContent = prods.total ?? prods.products?.length ?? '—';
     if (inv) {
       document.getElementById('stat-inv').textContent = inv.count ?? '—';
-      const low = (inv.items || []).filter(i => i.threshold && i.quantity <= i.threshold);
+      const low = getInventoryItems(inv).filter(i => i.threshold && i.quantity <= i.threshold);
       document.getElementById('stat-low').textContent = low.length;
       const lowEl = document.getElementById('dash-low-stock');
       if (low.length === 0) {
@@ -507,7 +545,7 @@ async function loadDashboard() {
             <span class="rec-icon">⚠️</span>
             <div>
               <div class="rec-name">${escHtml(i.product_name)}</div>
-              <div class="rec-msg">${i.quantity} left / threshold: ${i.threshold} · ${i.location || ''}</div>
+              <div class="rec-msg">${i.quantity} left / threshold: ${i.threshold} · ${formatLabel(i.location, 'Unknown')}</div>
             </div>
           </div>`).join('');
       }
@@ -540,7 +578,7 @@ async function loadInventory() {
   const body = document.getElementById('inv-table-body');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load inventory.</p></div>'; return; }
   const data = await res.json();
-  const items = data.items || [];
+  const items = getInventoryItems(data);
   if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
   body.innerHTML = `
     <table>
@@ -549,7 +587,7 @@ async function loadInventory() {
         <tr>
           <td><strong>${escHtml(i.product_name)}</strong></td>
           <td>${i.quantity}</td>
-          <td><span class="badge badge-${(i.location||'').toLowerCase()}">${i.location || '—'}</span></td>
+          <td><span class="badge badge-${normalizeBadge(i.location, 'pantry')}">${formatLabel(i.location, '—')}</span></td>
           <td>${i.threshold ?? '—'}</td>
           <td>${i.threshold && i.quantity <= i.threshold
             ? '<span class="badge badge-low">⚠️ Low</span>'
@@ -608,7 +646,7 @@ async function loadProducts(query = '') {
       <tbody>${items.map(p => `
         <tr>
           <td><strong>${escHtml(p.name)}</strong></td>
-          <td><span class="badge badge-${p.category?.toLowerCase()}">${p.category || '—'}</span></td>
+          <td><span class="badge badge-${normalizeBadge(p.category)}">${formatLabel(p.category, '—')}</span></td>
           <td style="color:var(--muted);font-size:0.8rem">${p.barcode || '—'}</td>
           <td style="color:var(--muted);font-size:0.8rem">${p.created_at ? p.created_at.split('T')[0] : '—'}</td>
           <td><button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑</button></td>
@@ -678,17 +716,20 @@ async function uploadReceipt() {
     document.getElementById('upload-btn').disabled = false;
 
     if (res.ok) {
-      document.getElementById('upload-status').textContent = `✅ Processed · ${data.items_count ?? ''} items`;
+      const items = getReceiptItems(data);
+      const summary = data?.data;
+      const store = summary?.store ? ` · ${summary.store}` : '';
+      const total = summary?.total != null ? ` · ${formatMoney(summary.total)}` : '';
+      document.getElementById('upload-status').textContent = `✅ Processed · ${items.length} items${store}${total}`;
       toast('Receipt processed! ✅', 'success');
       const card = document.getElementById('ocr-result-card');
       card.style.display = 'block';
-      const items = data.items || [];
       document.getElementById('ocr-result').innerHTML = items.length ?
         `<table>
           <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th></tr></thead>
-          <tbody>${items.map(i => `<tr><td>${escHtml(i.name)}</td><td>${i.quantity ?? 1}</td><td>$${(i.unit_price||0).toFixed(2)}</td></tr>`).join('')}</tbody>
+          <tbody>${items.map(i => `<tr><td>${escHtml(i.name)}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td></tr>`).join('')}</tbody>
         </table>
-        <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Extracted by: ${data.engine ?? 'AI'} · Confidence: ${((data.confidence??0)*100).toFixed(0)}%</p>` :
+        <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || 'Unknown')} · Total: ${formatMoney(summary?.total)} · Extracted by: ${data.ocr_engine ?? data.engine ?? 'AI'} · Confidence: ${((data.confidence??0)*100).toFixed(0)}%</p>` :
         `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
     } else {
       document.getElementById('upload-status').textContent = '❌ ' + (data.error || 'Failed');
@@ -768,19 +809,19 @@ async function loadAnalytics() {
   const body = document.getElementById('analytics-body');
   if (spendRes.ok) {
     const d = await spendRes.json();
-    const periods = d.spending_by_period || [];
+    const periods = getSpendingPeriods(d);
     body.innerHTML = periods.length ?
       `<table>
         <thead><tr><th>Period</th><th>Total</th><th>Items</th></tr></thead>
-        <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>$${(p.total||0).toFixed(2)}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
+        <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>${formatMoney(p.total)}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
       </table>` :
       '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
   }
   const dealsBody = document.getElementById('deals-body');
   if (dealsRes.ok) {
     const d = await dealsRes.json();
-    dealsBody.innerHTML = `<div style="font-size:1.4rem;font-weight:700;color:var(--success)">$${(d.total_saved||0).toFixed(2)} saved</div>
-      <div style="color:var(--muted);font-size:0.85rem;margin-top:4px">in the last month from ${d.deals_count ?? 0} deals</div>`;
+    dealsBody.innerHTML = `<div style="font-size:1.4rem;font-weight:700;color:var(--success)">${formatMoney(d.total_saved)} saved</div>
+      <div style="color:var(--muted);font-size:0.85rem;margin-top:4px">in the last month from ${d.deal_count ?? d.deals_count ?? 0} deals</div>`;
   }
 }
 
@@ -799,8 +840,9 @@ async function loadRecs() {
 
 function recHtml(r) {
   const icons = { deal: '🏷️', seasonal: '📅', low_stock: '⚠️' };
+  const type = getRecommendationType(r);
   return `<div class="rec-item">
-    <span class="rec-icon">${icons[r.type] || '💡'}</span>
+    <span class="rec-icon">${icons[type] || '💡'}</span>
     <div>
       <div class="rec-name">${escHtml(r.product_name)}</div>
       <div class="rec-msg">${escHtml(r.message)}</div>

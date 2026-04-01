@@ -14,14 +14,18 @@ Target Speed: <3 seconds per receipt
 import os
 import json
 import logging
+import mimetypes
 from datetime import date, datetime, timezone
 
-import google.generativeai as genai
+from google import genai
+from flask import has_app_context
+from google.genai import types
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ---------------------------------------------------------------------------
 # OCR Prompt
@@ -60,11 +64,6 @@ Rules:
 - Return ONLY valid JSON
 """
 
-# Configure Gemini
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
-
 # ---------------------------------------------------------------------------
 # Gemini OCR Function
 # ---------------------------------------------------------------------------
@@ -86,13 +85,17 @@ def extract_receipt_via_gemini(image_path: str) -> dict:
         raise ValueError("GEMINI_API_KEY not configured")
 
     # Load and compress image if needed
-    img = _load_and_compress_image(image_path)
+    image_bytes, mime_type = _load_and_compress_image(image_path)
 
     # Call Gemini
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    response = model.generate_content(
-        [RECEIPT_EXTRACTION_PROMPT, img],
-        generation_config=genai.types.GenerationConfig(
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=[
+            RECEIPT_EXTRACTION_PROMPT,
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+        ],
+        config=types.GenerateContentConfig(
             temperature=0.1,  # Low temp for structured extraction
             max_output_tokens=4096,
         ),
@@ -127,7 +130,8 @@ def extract_receipt_via_gemini(image_path: str) -> dict:
         f"Gemini OCR: {result.get('store', '?')} | "
         f"${result.get('total', 0):.2f} | "
         f"{len(result.get('items', []))} items | "
-        f"confidence: {result.get('confidence', 0):.2f}"
+        f"confidence: {result.get('confidence', 0):.2f} | "
+        f"model: {GEMINI_MODEL}"
     )
 
     return result
@@ -139,6 +143,10 @@ def extract_receipt_via_gemini(image_path: str) -> dict:
 
 def _track_api_usage(usage_metadata):
     """Persist API usage counters to the api_usage table."""
+    if not has_app_context():
+        logger.debug("Skipping Gemini API usage tracking outside Flask app context.")
+        return
+
     try:
         from flask import g
         session = g.db_session
@@ -173,6 +181,9 @@ def _track_api_usage(usage_metadata):
 
 def get_daily_usage() -> dict:
     """Get current day's Gemini API usage from the database."""
+    if not has_app_context():
+        return {"service": "gemini", "date": str(date.today()), "requests": 0, "tokens": 0}
+
     try:
         from flask import g
         from src.backend.initialize_database_schema import ApiUsage
@@ -191,7 +202,7 @@ def get_daily_usage() -> dict:
     return {"service": "gemini", "date": str(date.today()), "requests": 0, "tokens": 0}
 
 
-def _load_and_compress_image(image_path: str, max_size_mb: int = 5) -> Image.Image:
+def _load_and_compress_image(image_path: str, max_size_mb: int = 5) -> tuple[bytes, str]:
     """Load an image and compress if larger than max_size_mb."""
     img = Image.open(image_path)
 
@@ -204,8 +215,24 @@ def _load_and_compress_image(image_path: str, max_size_mb: int = 5) -> Image.Ima
     if file_size > max_size_mb * 1024 * 1024:
         img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
         logger.info(f"Compressed image from {file_size / 1024 / 1024:.1f}MB")
+        img_format = "JPEG"
+    else:
+        img_format = img.format or "PNG"
 
-    return img
+    mime_type = mimetypes.guess_type(image_path)[0]
+    if img_format == "JPEG":
+        mime_type = "image/jpeg"
+    elif not mime_type:
+        mime_type = "image/png"
+
+    from io import BytesIO
+
+    buffer = BytesIO()
+    save_kwargs = {"format": img_format}
+    if img_format == "JPEG":
+        save_kwargs["quality"] = 90
+    img.save(buffer, **save_kwargs)
+    return buffer.getvalue(), mime_type
 
 
 # ---------------------------------------------------------------------------
