@@ -27,6 +27,9 @@ def start_recommendation_scheduler():
     """Start the daily recommendation scheduler."""
     global _scheduler
 
+    if _scheduler is not None:
+        return  # Already running
+
     hour, minute = RECOMMENDATION_TIME.split(":")
     hour, minute = int(hour), int(minute)
 
@@ -38,25 +41,82 @@ def start_recommendation_scheduler():
         minute=minute,
         id="daily_recommendations",
         name="Daily Recommendation Push",
+        misfire_grace_time=3600,  # Allow 1 hour late execution
     )
+
+    # Also schedule image retention cleanup (weekly, Sunday 3 AM)
+    _scheduler.add_job(
+        _run_retention_cleanup,
+        trigger="cron",
+        day_of_week="sun",
+        hour=3,
+        id="retention_cleanup",
+        name="Receipt Image Retention Cleanup",
+    )
+
+    # Also schedule threshold checks (every 5 minutes)
+    _scheduler.add_job(
+        _run_threshold_check,
+        trigger="interval",
+        minutes=5,
+        id="threshold_check",
+        name="Low-Stock Threshold Check",
+    )
+
     _scheduler.start()
-    logger.info(f"Recommendation scheduler started — daily at {RECOMMENDATION_TIME}")
+    logger.info(
+        f"Schedulers started — recommendations daily at {RECOMMENDATION_TIME}, "
+        f"threshold checks every 5 min, image cleanup Sundays at 3 AM"
+    )
 
 
 def push_daily_recommendations():
     """Generate and publish daily recommendations via MQTT."""
     try:
-        # TODO: Implement
-        # from src.backend.generate_recommendations import generate_all_recommendations
-        # from src.backend.publish_mqtt_events import publish_recommendations
-        #
-        # recommendations = generate_all_recommendations()
-        # publish_recommendations(recommendations)
-        #
-        # logger.info(f"Published {len(recommendations)} daily recommendations")
-        logger.warning("Daily recommendation push not yet implemented")
+        from src.backend.initialize_database_schema import create_db_engine, create_session_factory
+        from flask import g
+
+        # Create standalone session (runs outside Flask request context)
+        engine = create_db_engine()
+        Session = create_session_factory(engine)
+
+        # We need a mock Flask context for modules that use g.db_session
+        from flask import Flask
+        app = Flask(__name__)
+        with app.app_context():
+            g.db_session = Session()
+            try:
+                from src.backend.generate_recommendations import generate_all_recommendations
+                from src.backend.publish_mqtt_events import publish_recommendations
+
+                recommendations = generate_all_recommendations()
+                publish_recommendations(recommendations)
+
+                logger.info(f"Published {len(recommendations)} daily recommendations")
+            finally:
+                g.db_session.close()
+
     except Exception as e:
         logger.error(f"Failed to push daily recommendations: {e}")
+
+
+def _run_retention_cleanup():
+    """Run receipt image retention cleanup."""
+    try:
+        from src.backend.save_receipt_images import cleanup_old_images
+        deleted = cleanup_old_images()
+        logger.info(f"Retention cleanup completed: {deleted} images deleted")
+    except Exception as e:
+        logger.error(f"Retention cleanup failed: {e}")
+
+
+def _run_threshold_check():
+    """Run low-stock threshold checks."""
+    try:
+        from src.backend.check_inventory_thresholds import check_all_thresholds
+        check_all_thresholds()
+    except Exception as e:
+        logger.error(f"Threshold check failed: {e}")
 
 
 def stop_recommendation_scheduler():
@@ -65,4 +125,4 @@ def stop_recommendation_scheduler():
     if _scheduler:
         _scheduler.shutdown(wait=False)
         _scheduler = None
-        logger.info("Recommendation scheduler stopped.")
+        logger.info("All schedulers stopped.")

@@ -16,7 +16,23 @@ from functools import wraps
 
 from flask import Flask, jsonify, request, g
 
+from src.backend.initialize_database_schema import (
+    create_db_engine, create_session_factory, initialize_database, User
+)
+
 logger = logging.getLogger(__name__)
+
+# Module-level engine and session factory (initialized once)
+_engine = None
+_SessionFactory = None
+
+
+def _get_db():
+    """Get or create the database engine and session factory."""
+    global _engine, _SessionFactory
+    if _engine is None:
+        _engine, _SessionFactory = initialize_database()
+    return _engine, _SessionFactory
 
 
 # ---------------------------------------------------------------------------
@@ -39,12 +55,12 @@ def require_auth(f):
         token = auth_header.split("Bearer ", 1)[1]
         token_hash = hash_token(token)
 
-        # TODO: Validate token_hash against users table
-        # session = g.get("db_session")
-        # user = session.query(User).filter_by(api_token_hash=token_hash).first()
-        # if not user:
-        #     return jsonify({"error": "Invalid token"}), 401
-        # g.current_user = user
+        # Validate token against users table
+        session = g.db_session
+        user = session.query(User).filter_by(api_token_hash=token_hash).first()
+        if not user:
+            return jsonify({"error": "Invalid token"}), 401
+        g.current_user = user
 
         return f(*args, **kwargs)
     return decorated
@@ -85,20 +101,75 @@ def register_error_handlers(app):
 
 def register_blueprints(app):
     """Register all API blueprints."""
-    # TODO: Import and register blueprints as they are implemented
-    #
-    # from src.backend.handle_telegram_messages import telegram_bp
-    # from src.backend.manage_product_catalog import products_bp
-    # from src.backend.manage_inventory import inventory_bp
-    # from src.backend.handle_receipt_upload import receipts_bp
-    # from src.backend.calculate_spending_analytics import analytics_bp
-    #
-    # app.register_blueprint(telegram_bp)
-    # app.register_blueprint(products_bp)
-    # app.register_blueprint(inventory_bp)
-    # app.register_blueprint(receipts_bp)
-    # app.register_blueprint(analytics_bp)
-    pass
+    from src.backend.handle_telegram_messages import telegram_bp
+    from src.backend.manage_product_catalog import products_bp
+    from src.backend.manage_inventory import inventory_bp
+    from src.backend.handle_receipt_upload import receipts_bp
+    from src.backend.calculate_spending_analytics import analytics_bp
+    from src.backend.manage_household_budget import budget_bp
+    from src.backend.generate_recommendations import recommendations_bp
+
+    app.register_blueprint(telegram_bp)
+    app.register_blueprint(products_bp)
+    app.register_blueprint(inventory_bp)
+    app.register_blueprint(receipts_bp)
+    app.register_blueprint(analytics_bp)
+    app.register_blueprint(budget_bp)
+    app.register_blueprint(recommendations_bp)
+
+    logger.info("All blueprints registered.")
+
+
+# ---------------------------------------------------------------------------
+# Database Session Lifecycle
+# ---------------------------------------------------------------------------
+
+def setup_db_session_lifecycle(app):
+    """Open a DB session before each request, close after."""
+
+    @app.before_request
+    def open_session():
+        _, SessionFactory = _get_db()
+        g.db_session = SessionFactory()
+
+    @app.teardown_request
+    def close_session(exception=None):
+        session = g.pop("db_session", None)
+        if session is not None:
+            if exception:
+                session.rollback()
+            session.close()
+
+
+# ---------------------------------------------------------------------------
+# First-Run Admin Setup
+# ---------------------------------------------------------------------------
+
+def ensure_admin_user():
+    """Create the initial admin user from INITIAL_ADMIN_TOKEN if no users exist."""
+    _, SessionFactory = _get_db()
+    session = SessionFactory()
+    try:
+        user_count = session.query(User).count()
+        if user_count == 0:
+            token = os.getenv("INITIAL_ADMIN_TOKEN", "")
+            if token:
+                admin = User(
+                    name="Admin",
+                    email="admin@localhost",
+                    role="admin",
+                    api_token_hash=hash_token(token),
+                )
+                session.add(admin)
+                session.commit()
+                logger.info("Initial admin user created from INITIAL_ADMIN_TOKEN.")
+            else:
+                logger.warning(
+                    "No users in database and INITIAL_ADMIN_TOKEN not set. "
+                    "API authentication will reject all requests."
+                )
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +190,17 @@ def create_app():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
 
+    # Initialize database
+    _get_db()
+
+    # Create initial admin user if needed
+    ensure_admin_user()
+
     # Error handlers
     register_error_handlers(app)
+
+    # Database session lifecycle (per-request)
+    setup_db_session_lifecycle(app)
 
     # Blueprints
     register_blueprints(app)
@@ -129,6 +209,20 @@ def create_app():
     @app.route("/health")
     def health():
         return jsonify({"status": "healthy", "service": "grocery-backend"}), 200
+
+    # Initialize MQTT connection
+    try:
+        from src.backend.setup_mqtt_connection import setup_mqtt_connection
+        setup_mqtt_connection()
+    except Exception as e:
+        logger.warning(f"MQTT connection failed (will retry): {e}")
+
+    # Start schedulers
+    try:
+        from src.backend.schedule_daily_recommendations import start_recommendation_scheduler
+        start_recommendation_scheduler()
+    except Exception as e:
+        logger.warning(f"Recommendation scheduler failed to start: {e}")
 
     logger.info("Flask application created successfully.")
     return app

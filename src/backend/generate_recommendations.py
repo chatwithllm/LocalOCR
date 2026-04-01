@@ -8,111 +8,158 @@ Uses scaled confidence formulas — threshold ≥0.40.
 
 Deal: min((avg_price - current_price) / avg_price * 5, 1.0)
 Seasonal: min((days_since_last / avg_frequency - 1.0) * 2.5, 1.0)
-
-Parallelizable: This phase is independent of Phases 4 & 6.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from statistics import median
+
+from flask import Blueprint, g, jsonify
+
+from src.backend.create_flask_application import require_auth
+from src.backend.initialize_database_schema import Product, PriceHistory, ReceiptItem, Purchase
 
 logger = logging.getLogger(__name__)
 
 CONFIDENCE_THRESHOLD = 0.40
 
+recommendations_bp = Blueprint("recommendations", __name__, url_prefix="/recommendations")
+
+
+@recommendations_bp.route("", methods=["GET"])
+@require_auth
+def get_recommendations():
+    """Get current recommendations (deals + seasonal)."""
+    recs = generate_all_recommendations()
+    return jsonify({
+        "recommendations": recs,
+        "count": len(recs),
+    }), 200
+
 
 def generate_all_recommendations() -> list:
-    """Generate all recommendations for the household.
-
-    Returns:
-        List of recommendation dicts with product_id, reason, confidence.
-    """
+    """Generate all recommendations for the household."""
     recommendations = []
 
-    # TODO: Implement
-    # recommendations.extend(detect_price_deals())
-    # recommendations.extend(detect_seasonal_patterns())
-    #
-    # # Filter by confidence threshold
-    # recommendations = [r for r in recommendations if r["confidence"] >= CONFIDENCE_THRESHOLD]
-    #
-    # # Sort by confidence (highest first)
-    # recommendations.sort(key=lambda r: r["confidence"], reverse=True)
+    try:
+        recommendations.extend(detect_price_deals())
+    except Exception as e:
+        logger.warning(f"Deal detection failed: {e}")
 
-    logger.warning("Recommendation engine not yet implemented")
+    try:
+        recommendations.extend(detect_seasonal_patterns())
+    except Exception as e:
+        logger.warning(f"Seasonal detection failed: {e}")
+
+    # Filter by confidence threshold
+    recommendations = [r for r in recommendations if r["confidence"] >= CONFIDENCE_THRESHOLD]
+
+    # Sort by confidence (highest first)
+    recommendations.sort(key=lambda r: r["confidence"], reverse=True)
+
     return recommendations
 
 
 def detect_price_deals() -> list:
-    """Detect products currently priced below their 3-month average.
-
-    Algorithm:
-        For each product with ≥3 price points in last 3 months:
-            avg_price = average(prices)
-            if current_price < avg_price * 0.9:
-                confidence = min((avg_price - current_price) / avg_price * 5, 1.0)
-                if confidence >= 0.40: yield recommendation
-    """
+    """Detect products currently priced below their 3-month average."""
     deals = []
-    # TODO: Implement
-    # session = get_db_session()
-    # three_months_ago = datetime.now() - timedelta(days=90)
-    # products = session.query(Product).all()
-    #
-    # for product in products:
-    #     prices = [ph.price for ph in product.price_history
-    #               if ph.date >= three_months_ago]
-    #     if len(prices) < 3:
-    #         continue
-    #     avg_price = sum(prices) / len(prices)
-    #     current_price = prices[-1]  # Most recent
-    #     if current_price < avg_price * 0.9:
-    #         confidence = min((avg_price - current_price) / avg_price * 5, 1.0)
-    #         if confidence >= CONFIDENCE_THRESHOLD:
-    #             deals.append({
-    #                 "product_id": product.id,
-    #                 "product_name": product.name,
-    #                 "reason": "deal",
-    #                 "confidence": round(confidence, 2),
-    #                 "current_price": current_price,
-    #                 "avg_price": round(avg_price, 2),
-    #                 "discount_pct": round((1 - current_price / avg_price) * 100, 1),
-    #             })
+    session = g.db_session
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)
+
+    products = session.query(Product).all()
+
+    for product in products:
+        prices = (
+            session.query(PriceHistory.price)
+            .filter(
+                PriceHistory.product_id == product.id,
+                PriceHistory.date >= three_months_ago,
+            )
+            .order_by(PriceHistory.date)
+            .all()
+        )
+
+        price_values = [p[0] for p in prices if p[0] is not None and p[0] > 0]
+
+        if len(price_values) < 3:
+            continue
+
+        avg_price = sum(price_values) / len(price_values)
+        current_price = price_values[-1]  # Most recent
+
+        if current_price < avg_price * 0.9:
+            confidence = min((avg_price - current_price) / avg_price * 5, 1.0)
+            if confidence >= CONFIDENCE_THRESHOLD:
+                discount_pct = round((1 - current_price / avg_price) * 100, 1)
+                deals.append({
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "category": product.category,
+                    "reason": "deal",
+                    "confidence": round(confidence, 2),
+                    "current_price": round(current_price, 2),
+                    "avg_price": round(avg_price, 2),
+                    "discount_pct": discount_pct,
+                    "message": (
+                        f"💰 {product.name} on sale! "
+                        f"Usually ${avg_price:.2f}, now ${current_price:.2f} "
+                        f"({discount_pct}% off)"
+                    ),
+                })
+
     return deals
 
 
 def detect_seasonal_patterns() -> list:
-    """Detect products overdue for repurchase based on buying frequency.
-
-    Algorithm:
-        For each product with ≥3 purchase dates:
-            avg_frequency = median(intervals between purchases)
-            days_since_last = today - last_purchase_date
-            if days_since_last > avg_frequency * 1.2:
-                confidence = min((days_since_last / avg_frequency - 1.0) * 2.5, 1.0)
-                if confidence >= 0.40: yield recommendation
-    """
+    """Detect products overdue for repurchase based on buying frequency."""
     seasonal = []
-    # TODO: Implement
-    # session = get_db_session()
-    # products_with_history = ...
-    #
-    # for product, purchase_dates in products_with_history:
-    #     if len(purchase_dates) < 3:
-    #         continue
-    #     intervals = [(purchase_dates[i+1] - purchase_dates[i]).days
-    #                  for i in range(len(purchase_dates) - 1)]
-    #     avg_frequency = median(intervals)
-    #     days_since_last = (datetime.now().date() - purchase_dates[-1]).days
-    #     if days_since_last > avg_frequency * 1.2:
-    #         confidence = min((days_since_last / avg_frequency - 1.0) * 2.5, 1.0)
-    #         if confidence >= CONFIDENCE_THRESHOLD:
-    #             seasonal.append({
-    #                 "product_id": product.id,
-    #                 "product_name": product.name,
-    #                 "reason": "seasonal",
-    #                 "confidence": round(confidence, 2),
-    #                 "days_since_last": days_since_last,
-    #                 "avg_frequency_days": avg_frequency,
-    #             })
+    session = g.db_session
+
+    products = session.query(Product).all()
+
+    for product in products:
+        # Get purchase dates for this product
+        purchase_dates = (
+            session.query(Purchase.date)
+            .join(ReceiptItem, ReceiptItem.purchase_id == Purchase.id)
+            .filter(ReceiptItem.product_id == product.id)
+            .order_by(Purchase.date)
+            .all()
+        )
+
+        dates = [p[0] for p in purchase_dates if p[0] is not None]
+
+        if len(dates) < 3:
+            continue
+
+        # Calculate intervals between purchases
+        intervals = []
+        for i in range(len(dates) - 1):
+            delta = (dates[i + 1] - dates[i]).days
+            if delta > 0:
+                intervals.append(delta)
+
+        if not intervals:
+            continue
+
+        avg_frequency = median(intervals)
+        days_since_last = (datetime.now(timezone.utc) - dates[-1]).days
+
+        if days_since_last > avg_frequency * 1.2:
+            confidence = min((days_since_last / avg_frequency - 1.0) * 2.5, 1.0)
+            if confidence >= CONFIDENCE_THRESHOLD:
+                seasonal.append({
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "category": product.category,
+                    "reason": "seasonal",
+                    "confidence": round(confidence, 2),
+                    "days_since_last": days_since_last,
+                    "avg_frequency_days": round(avg_frequency, 1),
+                    "message": (
+                        f"🛒 You usually buy {product.name} every "
+                        f"{avg_frequency:.0f} days. It's been {days_since_last} days."
+                    ),
+                })
+
     return seasonal

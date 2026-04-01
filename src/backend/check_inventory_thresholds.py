@@ -12,10 +12,29 @@ MQTT Topic: home/grocery/alerts/low_stock
 import logging
 from datetime import datetime, timedelta, timezone
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
 logger = logging.getLogger(__name__)
 
 # Track last alert time per product to avoid duplicates
 _last_alert_times = {}
+_scheduler = None
+
+
+def start_threshold_checker():
+    """Start the 5-minute threshold checking scheduler."""
+    global _scheduler
+
+    _scheduler = BackgroundScheduler()
+    _scheduler.add_job(
+        check_all_thresholds,
+        trigger="interval",
+        minutes=5,
+        id="threshold_check",
+        name="Low-Stock Threshold Check",
+    )
+    _scheduler.start()
+    logger.info("Threshold checking scheduler started (every 5 minutes).")
 
 
 def check_all_thresholds():
@@ -24,18 +43,42 @@ def check_all_thresholds():
     Runs every 5 minutes via APScheduler.
     Publishes MQTT alert for items below threshold.
     """
-    # TODO: Implement
-    # session = get_db_session()
-    # items = session.query(Inventory).filter(
-    #     Inventory.threshold.isnot(None),
-    #     Inventory.quantity < Inventory.threshold
-    # ).all()
-    #
-    # for item in items:
-    #     if _should_alert(item.product_id):
-    #         _publish_low_stock_alert(item)
-    #         _last_alert_times[item.product_id] = datetime.now(timezone.utc)
-    logger.warning("Threshold checking not yet implemented")
+    try:
+        from src.backend.initialize_database_schema import create_db_engine, create_session_factory, Inventory, Product
+        from src.backend.publish_mqtt_events import publish_low_stock_alert
+
+        # Create a standalone session (this runs outside Flask request context)
+        engine = create_db_engine()
+        Session = create_session_factory(engine)
+        session = Session()
+
+        try:
+            items = session.query(Inventory).join(Product).filter(
+                Inventory.threshold.isnot(None),
+                Inventory.quantity < Inventory.threshold
+            ).all()
+
+            alerted_count = 0
+            for item in items:
+                if _should_alert(item.product_id):
+                    product = session.query(Product).filter_by(id=item.product_id).first()
+                    if product:
+                        publish_low_stock_alert(
+                            product_id=product.id,
+                            product_name=product.name,
+                            current_qty=item.quantity,
+                            threshold=item.threshold,
+                        )
+                        _last_alert_times[item.product_id] = datetime.now(timezone.utc)
+                        alerted_count += 1
+
+            if alerted_count > 0:
+                logger.info(f"Low-stock alerts: {alerted_count} products below threshold.")
+        finally:
+            session.close()
+
+    except Exception as e:
+        logger.error(f"Threshold check failed: {e}")
 
 
 def _should_alert(product_id: int) -> bool:
@@ -46,24 +89,28 @@ def _should_alert(product_id: int) -> bool:
     return datetime.now(timezone.utc) - last_alert > timedelta(hours=24)
 
 
-def _publish_low_stock_alert(item):
-    """Publish a low-stock alert via MQTT."""
-    # TODO: Implement
-    # from src.backend.publish_mqtt_events import publish_low_stock_alert
-    # publish_low_stock_alert(
-    #     product_id=item.product_id,
-    #     product_name=item.product.name,
-    #     current_qty=item.quantity,
-    #     threshold=item.threshold,
-    # )
-    pass
-
-
 def set_threshold(product_id: int, threshold: float):
     """Set the low-stock threshold for a product."""
-    # TODO: Implement
-    # session = get_db_session()
-    # item = session.query(Inventory).filter_by(product_id=product_id).first()
-    # item.threshold = threshold
-    # session.commit()
-    pass
+    try:
+        from src.backend.initialize_database_schema import create_db_engine, create_session_factory, Inventory
+        engine = create_db_engine()
+        Session = create_session_factory(engine)
+        session = Session()
+        try:
+            item = session.query(Inventory).filter_by(product_id=product_id).first()
+            if item:
+                item.threshold = threshold
+                session.commit()
+                logger.info(f"Threshold set for product {product_id}: {threshold}")
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"Failed to set threshold: {e}")
+
+
+def stop_threshold_checker():
+    """Stop the scheduler gracefully."""
+    global _scheduler
+    if _scheduler:
+        _scheduler.shutdown(wait=False)
+        _scheduler = None
