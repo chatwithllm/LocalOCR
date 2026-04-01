@@ -154,7 +154,7 @@ class TestInventory:
         assert data["quantity"] == 6
         assert data["location"] == "Pantry"
 
-    @patch("src.backend.manage_inventory.publish_inventory_update")
+    @patch("src.backend.manage_inventory._publish_update")
     def test_consume_item(self, mock_mqtt, client, auth_header):
         # Add item
         resp = client.post("/inventory/add-item",
@@ -169,7 +169,7 @@ class TestInventory:
         assert response.status_code == 200
         assert response.get_json()["quantity"] == 9
 
-    @patch("src.backend.manage_inventory.publish_inventory_update")
+    @patch("src.backend.manage_inventory._publish_update")
     def test_cannot_go_below_zero(self, mock_mqtt, client, auth_header):
         resp = client.post("/inventory/add-item",
             headers=auth_header,
@@ -238,7 +238,7 @@ class TestRecommendations:
         avg_price = 4.00
         current_price = 3.80
         confidence = min((avg_price - current_price) / avg_price * 5, 1.0)
-        assert confidence == 0.25
+        assert confidence == pytest.approx(0.25)
         assert confidence < 0.40  # Should be filtered out
 
     def test_recommendations_endpoint(self, client, auth_header):
