@@ -1,51 +1,162 @@
+# =============================================================================
 # Home Assistant Dashboard Configuration
 # PROMPT Reference: Phase 7, Step 21
 #
-# This YAML file defines the Lovelace dashboard for the Grocery Management System.
-# Import this into your Home Assistant instance.
+# Import this into your Home Assistant configuration:
+#   1. Copy this file to your HA config directory
+#   2. Add to configuration.yaml: lovelace: !include home_assistant_dashboard_config.yaml
+#   3. Restart Home Assistant
 #
 # Prerequisites:
-#   - MQTT integration configured in Home Assistant
-#   - MQTT broker accessible at mqtt:1883
+#   - MQTT integration configured (broker: localhost:1883)
+#   - REST integration for API endpoints (base URL: http://localhost:8080)
+# =============================================================================
 
-# TODO: Implement dashboard cards
-# Components needed:
-#   1. Inventory Card — grid/list of products with quantity, location
-#   2. Recommendations Card — daily suggestions (deals + seasonal)
-#   3. Alerts Card — low-stock warnings, budget status
-#   4. Analytics Card — spending trends, budget vs actual
-#   5. Add Item Card — manual entry form
+# --- MQTT Sensors (add to configuration.yaml) ---
+# mqtt:
+#   sensor:
+#     - name: "Grocery Low Stock Alert"
+#       state_topic: "home/grocery/alerts/low_stock"
+#       value_template: "{{ value_json.name }}"
+#       json_attributes_topic: "home/grocery/alerts/low_stock"
+#
+#     - name: "Grocery Budget Alert"
+#       state_topic: "home/grocery/alerts/budget"
+#       value_template: "{{ value_json.percentage }}%"
+#       json_attributes_topic: "home/grocery/alerts/budget"
+#
+#     - name: "Grocery Recommendations"
+#       state_topic: "home/grocery/recommendations/daily"
+#       value_template: "{{ value_json.count }} suggestions"
+#       json_attributes_topic: "home/grocery/recommendations/daily"
 
-title: Grocery Manager
+# --- Dashboard Layout ---
+title: "🛒 Grocery Manager"
 views:
+
+  # ===== OVERVIEW TAB =====
   - title: Overview
-    path: grocery
-    icon: mdi:cart
+    path: grocery-overview
+    icon: mdi:cart-outline
+    badges: []
     cards:
-      # --- Inventory Card ---
-      - type: markdown
-        title: "📦 Inventory"
-        content: >
-          Inventory card not yet configured.
-          Requires MQTT sensors for home/grocery/inventory/# topics.
 
-      # --- Recommendations Card ---
-      - type: markdown
-        title: "💡 Recommendations"
-        content: >
-          Recommendations card not yet configured.
-          Requires MQTT sensor for home/grocery/recommendations/daily topic.
+      # --- Quick Stats ---
+      - type: horizontal-stack
+        cards:
+          - type: entity
+            entity: sensor.grocery_recommendations
+            name: "Today's Suggestions"
+            icon: mdi:lightbulb-on
 
-      # --- Alerts Card ---
-      - type: markdown
-        title: "🔔 Alerts"
-        content: >
-          Alerts card not yet configured.
-          Requires MQTT sensors for home/grocery/alerts/# topics.
+          - type: entity
+            entity: sensor.grocery_budget_alert
+            name: "Budget Used"
+            icon: mdi:cash-register
 
-      # --- Analytics Card ---
+          - type: entity
+            entity: sensor.grocery_low_stock_alert
+            name: "Low Stock"
+            icon: mdi:alert-circle
+
+      # --- Low Stock Alerts ---
       - type: markdown
-        title: "📊 Analytics"
+        title: "🔔 Low Stock Alerts"
         content: >
-          Analytics card not yet configured.
-          Requires REST sensors pointing to /analytics/* endpoints.
+          {% set alert = state_attr('sensor.grocery_low_stock_alert', 'name') %}
+          {% if alert %}
+          **{{ state_attr('sensor.grocery_low_stock_alert', 'name') }}** is running low!
+
+          Current: {{ state_attr('sensor.grocery_low_stock_alert', 'current') }}
+          Threshold: {{ state_attr('sensor.grocery_low_stock_alert', 'threshold') }}
+          {% else %}
+          ✅ All items are well-stocked.
+          {% endif %}
+
+      # --- Daily Recommendations ---
+      - type: markdown
+        title: "💡 Today's Recommendations"
+        content: >
+          {% set recs = state_attr('sensor.grocery_recommendations', 'recommendations') %}
+          {% if recs %}
+          {% for rec in recs[:5] %}
+          - **{{ rec.product_name }}** — {{ rec.message }}
+            _(confidence: {{ rec.confidence }})_
+          {% endfor %}
+          {% else %}
+          No recommendations today.
+          {% endif %}
+
+      # --- Budget Status ---
+      - type: markdown
+        title: "💰 Monthly Budget"
+        content: >
+          {% set pct = state_attr('sensor.grocery_budget_alert', 'percentage') or 0 %}
+          {% set spent = state_attr('sensor.grocery_budget_alert', 'spent') or 0 %}
+          {% set budget = state_attr('sensor.grocery_budget_alert', 'budget_amount') or 0 %}
+          **{{ pct }}%** of budget used
+
+          Spent: ${{ spent }} / ${{ budget }}
+          {% if pct >= 80 %}
+          ⚠️ Over 80% — watch your spending!
+          {% endif %}
+
+  # ===== INVENTORY TAB =====
+  - title: Inventory
+    path: grocery-inventory
+    icon: mdi:fridge-outline
+    cards:
+
+      # --- Inventory by Location ---
+      - type: markdown
+        title: "📦 Current Inventory"
+        content: >
+          Use the REST API to view inventory:
+          `GET http://localhost:8080/inventory`
+
+          **Locations:**
+          - 🧊 Fridge
+          - 🥫 Pantry
+          - ❄️ Freezer
+          - 🗄️ Cabinet
+
+      # --- Quick Actions ---
+      - type: vertical-stack
+        title: "Quick Actions"
+        cards:
+          - type: button
+            name: "Upload Receipt"
+            icon: mdi:camera
+            tap_action:
+              action: url
+              url_path: "http://localhost:8080/receipts/upload"
+
+          - type: button
+            name: "View Low Stock"
+            icon: mdi:alert
+            tap_action:
+              action: url
+              url_path: "http://localhost:8080/inventory?low_stock=true"
+
+  # ===== ANALYTICS TAB =====
+  - title: Analytics
+    path: grocery-analytics
+    icon: mdi:chart-line
+    cards:
+
+      - type: markdown
+        title: "📊 Spending Analytics"
+        content: >
+          Access analytics via the API:
+
+          - **Monthly spending:** `GET /analytics/spending?period=monthly`
+          - **By category:** `GET /analytics/spending?category=dairy`
+          - **Price trends:** `GET /analytics/price-history?product_id=1`
+          - **Deals captured:** `GET /analytics/deals-captured`
+          - **Store comparison:** `GET /analytics/store-comparison?product_id=1`
+
+      - type: markdown
+        title: "🏪 Store Comparison"
+        content: >
+          Compare prices across stores via:
+          `GET http://localhost:8080/analytics/store-comparison?product_id=1`

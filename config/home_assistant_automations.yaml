@@ -1,52 +1,118 @@
+# =============================================================================
 # Home Assistant Automations
 # PROMPT Reference: Phase 7, Step 22
 #
-# These automations respond to MQTT events from the grocery backend.
-# Import into your Home Assistant automations.yaml.
+# Add these automations to your Home Assistant automations.yaml
+# Prerequisites: MQTT integration configured
+# =============================================================================
 
-# TODO: Implement automations
+# --- Automation 1: Low-Stock Alert → Notify All Devices ---
+- alias: "Grocery - Low Stock Alert"
+  id: grocery_low_stock_alert
+  description: "Notify household when an inventory item drops below threshold"
+  trigger:
+    - platform: mqtt
+      topic: "home/grocery/alerts/low_stock"
+  action:
+    - service: notify.notify
+      data:
+        title: "🔔 Low Stock Alert"
+        message: >
+          {{ trigger.payload_json.name }} is running low!
+          Current: {{ trigger.payload_json.current }}
+          (threshold: {{ trigger.payload_json.threshold }})
+        data:
+          tag: "grocery-low-stock-{{ trigger.payload_json.product_id }}"
+          priority: high
+  mode: queued
+  max: 10
 
-# --- Automation 1: Low-Stock Alert → Notify Household ---
-# - alias: "Grocery - Low Stock Alert"
-#   trigger:
-#     - platform: mqtt
-#       topic: "home/grocery/alerts/low_stock"
-#   action:
-#     - service: notify.notify
-#       data:
-#         title: "🔔 Low Stock Alert"
-#         message: "{{ trigger.payload_json.name }} is running low ({{ trigger.payload_json.current }} remaining)"
+# --- Automation 2: Daily Recommendations Push ---
+- alias: "Grocery - Daily Recommendations"
+  id: grocery_daily_recommendations
+  description: "Notify household of daily grocery recommendations"
+  trigger:
+    - platform: mqtt
+      topic: "home/grocery/recommendations/daily"
+  condition:
+    - condition: template
+      value_template: "{{ trigger.payload_json.count > 0 }}"
+  action:
+    - service: notify.notify
+      data:
+        title: "🛒 Grocery Recommendations ({{ trigger.payload_json.count }})"
+        message: >
+          {% for rec in trigger.payload_json.recommendations[:3] %}
+          • {{ rec.message }}
+          {% endfor %}
+          {% if trigger.payload_json.count > 3 %}
+          ...and {{ trigger.payload_json.count - 3 }} more
+          {% endif %}
+        data:
+          tag: "grocery-recommendations"
+  mode: single
 
-# --- Automation 2: Daily Recommendations → Push at 8 AM ---
-# - alias: "Grocery - Daily Recommendations"
-#   trigger:
-#     - platform: mqtt
-#       topic: "home/grocery/recommendations/daily"
-#   action:
-#     - service: notify.notify
-#       data:
-#         title: "🛒 Daily Grocery Recommendations"
-#         message: "{{ trigger.payload_json.count }} suggestions for today"
+# --- Automation 3: Budget Threshold Alert ---
+- alias: "Grocery - Budget Alert"
+  id: grocery_budget_alert
+  description: "Notify when grocery spending exceeds 80% of monthly budget"
+  trigger:
+    - platform: mqtt
+      topic: "home/grocery/alerts/budget"
+  condition:
+    - condition: template
+      value_template: "{{ trigger.payload_json.percentage >= 80 }}"
+  action:
+    - service: notify.notify
+      data:
+        title: "⚠️ Grocery Budget Alert"
+        message: >
+          {{ trigger.payload_json.percentage }}% of your grocery budget is spent!
+          ${{ trigger.payload_json.spent }} of ${{ trigger.payload_json.budget_amount }}
+        data:
+          tag: "grocery-budget-alert"
+          priority: high
+  mode: single
 
-# --- Automation 3: Budget Alert → Notify at 80% ---
-# - alias: "Grocery - Budget Alert"
-#   trigger:
-#     - platform: mqtt
-#       topic: "home/grocery/alerts/budget"
-#   action:
-#     - service: notify.notify
-#       data:
-#         title: "⚠️ Budget Alert"
-#         message: "{{ trigger.payload_json.percentage }}% of grocery budget spent (${{ trigger.payload_json.spent }} of ${{ trigger.payload_json.budget_amount }})"
+# --- Automation 4: Weekly Spending Summary (Sunday 9 AM) ---
+- alias: "Grocery - Weekly Summary"
+  id: grocery_weekly_summary
+  description: "Send weekly spending summary every Sunday morning"
+  trigger:
+    - platform: time
+      at: "09:00:00"
+  condition:
+    - condition: time
+      weekday:
+        - sun
+  action:
+    - service: rest_command.grocery_weekly_summary
+    - service: notify.notify
+      data:
+        title: "📊 Weekly Grocery Summary"
+        message: "Check your Home Assistant dashboard for this week's spending report."
+        data:
+          tag: "grocery-weekly-summary"
+  mode: single
 
-# --- Automation 4: Weekly Summary ---
-# - alias: "Grocery - Weekly Summary"
-#   trigger:
-#     - platform: time
-#       at: "09:00:00"
-#   condition:
-#     - condition: time
-#       weekday:
-#         - sun
-#   action:
-#     - service: rest_command.grocery_weekly_summary
+# --- Automation 5: New Receipt Processed → Confirm ---
+- alias: "Grocery - Receipt Processed"
+  id: grocery_receipt_processed
+  description: "Notify when a new receipt is successfully processed"
+  trigger:
+    - platform: mqtt
+      topic: "home/grocery/inventory/+"
+  condition:
+    - condition: template
+      value_template: "{{ trigger.payload_json.updated_by == 'system' }}"
+  action:
+    - service: notify.notify
+      data:
+        title: "📸 Receipt Processed"
+        message: >
+          {{ trigger.payload_json.name }}: {{ trigger.payload_json.quantity }} units
+          ({{ trigger.payload_json.location }})
+        data:
+          tag: "grocery-receipt-{{ trigger.payload_json.product_id }}"
+  mode: queued
+  max: 20
