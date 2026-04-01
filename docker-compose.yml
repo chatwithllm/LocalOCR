@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # Flask Backend API (PROMPT Step 1 + Step 3)
   backend:
@@ -10,7 +8,6 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./src/backend:/app/src/backend
       - grocery-db:/data/db
       - grocery-receipts:/data/receipts
       - grocery-backups:/data/backups

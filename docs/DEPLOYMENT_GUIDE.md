@@ -15,6 +15,8 @@ Before deploying, ensure you have:
 
 ---
 
+If you want the shortest operator-friendly path, start with [APP_SETUP_GUIDE.md](APP_SETUP_GUIDE.md). This deployment guide goes a bit deeper.
+
 ## Step 1: Clone & Configure
 
 ```bash
@@ -36,6 +38,16 @@ GEMINI_MODEL=gemini-2.5-flash
 INITIAL_ADMIN_TOKEN=generate_a_secure_token
 ```
 
+**Useful optional `.env` values:**
+```
+OLLAMA_ENDPOINT=http://ollama:11434
+MQTT_BROKER=mqtt
+MQTT_PORT=1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+HOME_ASSISTANT_BASE_URL=http://homeassistant.local:8123
+```
+
 **Optional (for Telegram):**
 ```
 TELEGRAM_BOT_TOKEN=your_bot_token
@@ -49,13 +61,13 @@ TELEGRAM_WEBHOOK_SECRET=your_random_secret
 
 ```bash
 # Start all containers (first run will build + download images)
-docker-compose up -d
+docker compose up -d --build
 
 # Watch logs
-docker-compose logs -f
+docker compose logs -f
 
 # Verify all services are healthy
-docker-compose ps
+docker compose ps
 ```
 
 If you are running the backend directly instead of Docker, the Flask app now auto-loads `.env` on startup for local development.
@@ -126,7 +138,7 @@ curl -X POST http://localhost:8080/receipts/upload \
 ## Step 7: Configure Home Assistant (Optional)
 
 1. Add MQTT integration in Home Assistant
-2. Point to broker: `localhost:1883`
+2. Point to the broker configured in `.env`
 3. Import dashboard config from `config/home_assistant_dashboard_config.yaml`
 4. Import automations from `config/home_assistant_automations.yaml`
 
@@ -149,6 +161,19 @@ See [NGINX_PROXY_MANAGER_SETUP.md](NGINX_PROXY_MANAGER_SETUP.md) for proxy routi
 
 ## Maintenance
 
+### Automatic Start After Reboot
+
+The containers already use Docker restart policies. To make the app come back after a machine reboot:
+
+1. Configure Docker Desktop / Docker Engine to start automatically on boot
+2. Bring the stack up once:
+
+```bash
+docker compose up -d
+```
+
+After that, Docker should restart the services automatically unless you explicitly stop them.
+
 ### Daily Backup (Automatic)
 ```bash
 # Manual trigger
@@ -167,13 +192,11 @@ docker exec grocery-backend /app/scripts/restore_from_backup.sh /data/backups/gr
 git pull
 cp .env.example .env  # only if setting up on a fresh machine
 edit .env             # keep secrets local; never commit them
-pip install -r requirements.txt
-docker-compose build
-docker-compose up -d
+docker compose up -d --build
 ```
 
 ### Stop
 ```bash
-docker-compose down        # Stop containers (data preserved in volumes)
-docker-compose down -v     # Stop AND delete data (careful!)
+docker compose down        # Stop containers (data preserved in volumes)
+docker compose down -v     # Stop AND delete data (careful!)
 ```

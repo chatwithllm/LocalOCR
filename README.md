@@ -2,6 +2,8 @@
 
 A **privacy-first, local-first** grocery management system for households. Upload receipts, track inventory across devices, get smart recommendations, and monitor spending — all self-hosted with zero ongoing costs.
 
+This repo is set up to run like an app via Docker Compose, not just as a developer sandbox.
+
 ## ✨ Features
 
 - **📸 Receipt OCR** — Send a photo or PDF via Telegram or upload directly. Hybrid OCR (Gemini + Ollama fallback) extracts items automatically.
@@ -23,7 +25,7 @@ cp .env.example .env
 # Edit .env with your Gemini API key, initial admin token, Telegram bot token, etc.
 
 # 3. Start all services
-docker-compose up -d
+docker compose up -d --build
 
 # 4. Verify services are running
 curl http://localhost:8080/health     # Backend
@@ -39,6 +41,8 @@ curl -X POST http://localhost:8080/receipts/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "image=@path/to/receipt.pdf"
 ```
+
+For a guided "fill in the placeholders and launch the app" setup, read [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md).
 
 For a current handoff snapshot of what is finished and what still needs work, see [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
@@ -81,6 +85,7 @@ For a current handoff snapshot of what is finished and what still needs work, se
 | [PRD.md](PRD.md) | Product requirements & acceptance criteria |
 | [PROMPT.md](PROMPT.md) | 24-step implementation guide |
 | [CONTINUITY.md](CONTINUITY.md) | Restart/resume project from any point |
+| [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md) | App-style first-run setup guide |
 | [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) | Current working status + restart handoff |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture details |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | API endpoint documentation |
@@ -95,6 +100,10 @@ For a current handoff snapshot of what is finished and what still needs work, se
 - **Frontend:** Home Assistant YAML dashboard
 - **Deployment:** Docker Compose
 - **Cost:** $0/month (free Gemini tier + self-hosted)
+
+## Auto-Start
+
+The Docker services use `restart: unless-stopped`, so once the stack has been started successfully and Docker itself is configured to launch on boot, the app comes back automatically after a machine restart.
 
 ## 📄 License
 

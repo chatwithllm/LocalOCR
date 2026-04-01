@@ -69,9 +69,12 @@ def setup_mqtt_connection():
     """Initialize and connect the MQTT client."""
     broker = os.getenv("MQTT_BROKER", "mqtt")
     port = int(os.getenv("MQTT_PORT", 1883))
+    username = os.getenv("MQTT_USERNAME", "").strip()
+    password = os.getenv("MQTT_PASSWORD", "")
+    client_id = os.getenv("MQTT_CLIENT_ID", "grocery-backend")
 
     client = mqtt.Client(
-        client_id="grocery-backend",
+        client_id=client_id,
         protocol=mqtt.MQTTv5
     )
 
@@ -79,6 +82,9 @@ def setup_mqtt_connection():
     client.on_connect = _on_connect
     client.on_disconnect = _on_disconnect
     client.on_message = _on_message
+
+    if username:
+        client.username_pw_set(username=username, password=password or None)
 
     # Auto-reconnect
     client.reconnect_delay_set(min_delay=1, max_delay=60)

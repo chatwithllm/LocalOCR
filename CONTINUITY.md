@@ -17,6 +17,7 @@
 - Gemini OCR is implemented, migrated to `google-genai`, and working
 - Gemini OCR now augments PDF receipts with the PDF text layer to recover summary fields like date, subtotal, tax, total, and time
 - OCR fallback chain exists: Gemini → OpenAI → Ollama
+- Docker Compose is the primary intended runtime, with restart policies already configured for backend, MQTT, and Ollama
 - Product, inventory, analytics, budget, and recommendations endpoints are implemented
 - Web app tabs are implemented for dashboard, inventory, products, upload, receipts, budget, analytics, recommendations, and settings
 - Receipt review/history is implemented in the web app, including extracted items plus image/PDF preview
@@ -108,6 +109,7 @@ Every file in the project and what it does:
 | `CONTINUITY.md` | This file — restart/resume guide |
 | `docs/IMPLEMENTATION_STATUS.md` | Current verified status + restart handoff |
 | `README.md` | Quick start and project overview |
+| `docs/APP_SETUP_GUIDE.md` | Operator-friendly first-run app setup |
 | `docker-compose.yml` | Service orchestration (backend, MQTT, Ollama) |
 | `Dockerfile` | Backend container image definition |
 | `requirements.txt` | Python dependencies |

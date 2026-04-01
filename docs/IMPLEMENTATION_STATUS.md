@@ -9,6 +9,7 @@
 - Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
 - Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
 - PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
+- Docker Compose is configured as the primary app runtime with restart policies for backend, MQTT, and Ollama
 - SQLite is being used locally with WAL mode enabled
 - The repo is not production-finished yet, but it is in a usable development state
 
@@ -60,6 +61,7 @@ These flows were manually verified in the current environment:
 - Telegram confirmation flow is implemented before OCR begins
 - Telegram webhook registration/status helper is implemented
 - Review receipts now persist raw OCR data and can be approved from the web app
+- Operator-focused Docker setup guide exists for non-developer deployment
 
 ### Core App Features
 
