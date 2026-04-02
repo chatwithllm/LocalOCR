@@ -11,11 +11,14 @@
 - Admins can now edit users, reset passwords, and activate/deactivate accounts
 - Existing users can request password help from the login screen, and admins can fulfill those requests
 - Mobile navigation now collapses into a menu on smaller screens instead of leaving the sidebar fixed open
+- Shopping List tab is now available for manually tracked buy-later items
 - Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
 - Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
 - PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
 - Docker Compose is configured as the primary app runtime with restart policies for backend, MQTT, and Ollama
 - SQLite is being used locally with WAL mode enabled
+- Product names are normalized on save, and the catalog has been cleaned of case-only duplicates
+- Store names are normalized on save, and the store list has been cleaned of case-only duplicates
 - The repo is not production-finished yet, but it is in a usable development state
 
 ## Verified Working
@@ -33,21 +36,25 @@ These flows were manually verified in the current environment:
 - `POST /auth/forgot-password`
 - mobile navigation on narrow screens
 - Products tab:
-  list, search, create, delete
+  grouped list, search, create, delete, rename/merge, receipt shortcuts
 - Inventory tab:
-  list, add, consume, delete
+  list, add, consume, delete, search
 - Budget tab:
   set monthly budget, read budget status
 - Analytics tab:
   frontend now matches the backend response shape
 - Recommendations tab:
-  endpoint and UI load correctly; can be empty if there is not enough history
+  endpoint and UI load correctly; can be empty if there is not enough history; can add items to shopping list
+- Shopping List tab:
+  manual add, mark bought, reopen, delete
 - Upload Receipt tab:
   authenticated upload works for images and PDFs and renders OCR results
 - Gemini OCR:
   verified directly and through the live upload path
 - Receipts tab:
   supports image preview, PDF viewing, OCR re-run, and review approval
+- Product → Receipt jump:
+  linked receipt pills now open the clicked receipt instead of the newest receipt
 - Telegram PDF flow:
   verified end to end from the real bot chat, including confirm-before-process
 - Verified real PDF extraction result:
@@ -87,7 +94,8 @@ These flows were manually verified in the current environment:
 - Budget endpoints exist
 - Analytics endpoints exist
 - Recommendations endpoint exists
-- Frontend tabs for dashboard, inventory, products, upload, budget, analytics, recommendations, and settings are wired to the current backend responses
+- Shopping list endpoints exist
+- Frontend tabs for dashboard, inventory, products, upload, receipts, shopping list, budget, analytics, recommendations, and settings are wired to the current backend responses
 - Mobile navigation has a working off-canvas menu for smaller screens
 
 ## Partial / In Progress
@@ -105,6 +113,7 @@ These areas exist but are not fully validated or fully complete:
 - Rich browser-level validation of the review editor UI beyond manual smoke use
 - Telegram-to-local-account linking
 - Self-service password change flow for logged-in users
+- Smarter OCR-name cleanup for truncated labels beyond case normalization
 
 ## Known Gaps
 
@@ -113,6 +122,7 @@ These areas exist but are not fully validated or fully complete:
 - The Home Assistant configuration files are present, but not validated as part of the latest work
 - PDF conversion depends on `pdftoppm` being present; Docker now installs it, and local hosts need Poppler installed too
 - Dense PDFs may still produce imperfect product names/categories even when summary fields are now recovered correctly
+- The current local runtime is logging MQTT auth failures (`Not authorized`), so MQTT-connected features still need credential validation
 
 ## Recommended Next Steps
 
@@ -123,7 +133,7 @@ These areas exist but are not fully validated or fully complete:
 5. Run the receipt upload flow against Gemini on the fresh environment
 6. Validate MQTT publishing with a real broker/Home Assistant consumer
 7. Test the Telegram confirmation flow with a real photo receipt
-8. Add or refresh automated tests for products, inventory, upload, analytics, and auth
+8. Add or refresh automated tests for products, inventory, upload, analytics, shopping list, and auth
 
 ## Fresh Start Checklist
 

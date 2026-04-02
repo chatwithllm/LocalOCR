@@ -21,6 +21,13 @@ from datetime import datetime, timezone
 
 from flask import g
 
+from src.backend.normalize_product_names import (
+    canonicalize_product_name,
+    find_matching_product,
+    normalize_product_category,
+)
+from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
+
 logger = logging.getLogger(__name__)
 
 CONFIDENCE_THRESHOLD = 0.80  # Flag for manual review below this
@@ -328,8 +335,8 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         session = g.db_session
 
         # Find or create store
-        store_name = ocr_data.get("store", "Unknown Store")
-        store = session.query(Store).filter_by(name=store_name).first()
+        store_name = canonicalize_store_name(ocr_data.get("store", "Unknown Store"))
+        store = find_matching_store(session, store_name)
         if not store:
             store = Store(
                 name=store_name,
@@ -351,15 +358,13 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
 
         # Process each item
         for item_data in ocr_data.get("items", []):
-            product_name = item_data.get("name", "Unknown Item")
-            category = item_data.get("category", "other")
+            product_name = canonicalize_product_name(item_data.get("name", "Unknown Item"))
+            category = normalize_product_category(item_data.get("category", "other"))
             quantity = _safe_float(item_data.get("quantity", 1), 1.0)
             unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
 
             # Find or create product
-            product = session.query(Product).filter_by(
-                name=product_name, category=category
-            ).first()
+            product = find_matching_product(session, product_name, category)
             if not product:
                 product = Product(name=product_name, category=category)
                 session.add(product)

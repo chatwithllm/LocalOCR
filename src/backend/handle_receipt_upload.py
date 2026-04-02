@@ -15,7 +15,7 @@ import logging
 import json
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, g, send_file
 
@@ -82,6 +82,36 @@ def _parse_raw_ocr_json(raw_value: str | None) -> dict | None:
         return json.loads(raw_value)
     except json.JSONDecodeError:
         logger.warning("Failed to parse stored OCR JSON for receipt review.")
+        return None
+
+
+def _cleanup_receipt_files(image_paths: list[str]):
+    """Best-effort cleanup for stored receipt files and empty parent folders."""
+    for image_path in set(path for path in image_paths if path):
+        resolved = _resolve_receipt_path(image_path)
+        if not resolved:
+            continue
+        try:
+            resolved.unlink(missing_ok=True)
+            parent = resolved.parent
+            root = Path(_get_receipts_root()).resolve()
+            while parent != root and parent.exists():
+                try:
+                    parent.rmdir()
+                except OSError:
+                    break
+                parent = parent.parent
+        except Exception as exc:
+            logger.warning("Failed to remove stored receipt file %s: %s", resolved, exc)
+
+
+def _parse_filter_date(value: str | None):
+    """Parse YYYY-MM-DD filter values safely."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
         return None
 
 
@@ -228,14 +258,52 @@ def list_receipts():
 
     session = g.db_session
     limit = request.args.get("limit", 50, type=int)
-    records = (
+    store_filter = request.args.get("store", "").strip()
+    status_filter = request.args.get("status", "").strip().lower()
+    source_filter = request.args.get("source", "").strip().lower()
+    purchase_date_from = _parse_filter_date(request.args.get("purchase_date_from"))
+    purchase_date_to = _parse_filter_date(request.args.get("purchase_date_to"))
+    upload_date_from = _parse_filter_date(request.args.get("upload_date_from"))
+    upload_date_to = _parse_filter_date(request.args.get("upload_date_to"))
+
+    query = (
         session.query(TelegramReceipt, Purchase, Store)
         .outerjoin(Purchase, TelegramReceipt.purchase_id == Purchase.id)
         .outerjoin(Store, Purchase.store_id == Store.id)
-        .order_by(TelegramReceipt.created_at.desc())
-        .limit(max(1, min(limit, 200)))
-        .all()
     )
+
+    if store_filter:
+        query = query.filter(Store.name == store_filter)
+    if status_filter:
+        query = query.filter(TelegramReceipt.status == status_filter)
+    if source_filter == "telegram":
+        query = query.filter(~TelegramReceipt.telegram_user_id.startswith("upload"))
+    elif source_filter == "upload":
+        query = query.filter(TelegramReceipt.telegram_user_id.startswith("upload"))
+    if purchase_date_from:
+        query = query.filter(Purchase.date >= purchase_date_from)
+    if purchase_date_to:
+        query = query.filter(Purchase.date < purchase_date_to + timedelta(days=1))
+    if upload_date_from:
+        query = query.filter(TelegramReceipt.created_at >= upload_date_from)
+    if upload_date_to:
+        query = query.filter(TelegramReceipt.created_at < upload_date_to + timedelta(days=1))
+
+    records = query.order_by(TelegramReceipt.created_at.desc()).all()
+    limited_records = records[:max(1, min(limit, 200))]
+
+    stores = sorted({
+        row[0] for row in session.query(Store.name).filter(Store.name.isnot(None)).distinct().all() if row[0]
+    })
+
+    store_counts = {}
+    month_counts = {}
+    for record, purchase, store in records:
+        store_name = store.name if store else "Unknown"
+        store_counts[store_name] = store_counts.get(store_name, 0) + 1
+        if purchase and purchase.date:
+            month_key = purchase.date.strftime("%Y-%m")
+            month_counts[month_key] = month_counts.get(month_key, 0) + 1
 
     return jsonify({
         "receipts": [
@@ -255,9 +323,29 @@ def list_receipts():
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
                 "file_type": _detect_receipt_file_type(record.image_path),
             }
-            for record, purchase, store in records
+            for record, purchase, store in limited_records
         ],
         "count": len(records),
+        "filters": {
+            "stores": stores,
+            "sources": ["upload", "telegram"],
+            "statuses": sorted({
+                row[0]
+                for row in session.query(TelegramReceipt.status).distinct().all()
+                if row[0]
+            }),
+        },
+        "summary": {
+            "total_receipts": len(records),
+            "receipts_by_store": [
+                {"store": store_name, "count": count}
+                for store_name, count in sorted(store_counts.items(), key=lambda item: (-item[1], item[0]))
+            ],
+            "purchases_by_month": [
+                {"month": month, "count": count}
+                for month, count in sorted(month_counts.items(), reverse=True)
+            ],
+        },
     }), 200
 
 
@@ -375,3 +463,83 @@ def reprocess_receipt(receipt_id):
     )
 
     return jsonify(result), 200
+
+
+@receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])
+@require_auth
+def delete_receipt(receipt_id):
+    """Delete a receipt record, its stored file, and any associated purchase data."""
+    from src.backend.initialize_database_schema import (
+        TelegramReceipt, Purchase, ReceiptItem, PriceHistory, Inventory
+    )
+
+    session = g.db_session
+    record = (
+        session.query(TelegramReceipt)
+        .filter(
+            (TelegramReceipt.purchase_id == receipt_id) |
+            (TelegramReceipt.id == receipt_id)
+        )
+        .order_by(TelegramReceipt.created_at.desc())
+        .first()
+    )
+    purchase = session.query(Purchase).filter_by(id=receipt_id).first()
+    if not record and not purchase:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    if not purchase and record and record.purchase_id:
+        purchase = session.query(Purchase).filter_by(id=record.purchase_id).first()
+
+    linked_records = []
+    if purchase:
+        linked_records = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.purchase_id == purchase.id)
+            .all()
+        )
+    elif record:
+        linked_records = [record]
+
+    image_paths = [item.image_path for item in linked_records if item.image_path]
+    deleted_purchase_id = purchase.id if purchase else None
+    deleted_record_ids = [item.id for item in linked_records]
+
+    try:
+        if purchase:
+            receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
+            for receipt_item in receipt_items:
+                inventory = session.query(Inventory).filter_by(product_id=receipt_item.product_id).first()
+                if inventory:
+                    inventory.quantity = max(0, inventory.quantity - (receipt_item.quantity or 0))
+                    if inventory.quantity == 0:
+                        session.delete(inventory)
+
+                session.query(PriceHistory).filter(
+                    PriceHistory.product_id == receipt_item.product_id,
+                    PriceHistory.store_id == purchase.store_id,
+                    PriceHistory.date == purchase.date,
+                    PriceHistory.price == receipt_item.unit_price,
+                ).delete(synchronize_session=False)
+
+            session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+            session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).delete(synchronize_session=False)
+            session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
+        elif linked_records:
+            session.query(TelegramReceipt).filter(
+                TelegramReceipt.id.in_(deleted_record_ids)
+            ).delete(synchronize_session=False)
+
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        logger.error("Failed to delete receipt %s: %s", receipt_id, exc)
+        return jsonify({"error": "Failed to delete receipt"}), 500
+
+    _cleanup_receipt_files(image_paths)
+
+    return jsonify({
+        "status": "deleted",
+        "receipt_id": receipt_id,
+        "deleted_record_ids": deleted_record_ids,
+        "deleted_purchase_id": deleted_purchase_id,
+    }), 200

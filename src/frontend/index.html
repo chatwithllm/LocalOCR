@@ -203,6 +203,106 @@
     .rec-name { font-weight: 600; font-size: 0.9rem; }
     .rec-msg { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
     .rec-conf { font-size: 0.75rem; color: var(--accent); font-weight: 600; margin-top: 4px; }
+    .month-chart {
+      min-height: 100%;
+      padding: 18px 18px 14px;
+      border-radius: 5px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+      border: 1px solid rgba(255,255,255,0.04);
+      overflow-x: auto;
+    }
+    .month-bars {
+      position: relative;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(72px, 1fr);
+      align-items: end;
+      gap: 18px;
+      min-height: 220px;
+      padding: 8px 6px 0;
+      min-width: max-content;
+    }
+    .month-bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      min-width: 0;
+    }
+    .month-bar-value {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .month-bar-track {
+      width: min(56px, 100%);
+      height: 190px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      border-radius: 5px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+        repeating-linear-gradient(
+          to top,
+          rgba(255,255,255,0.05) 0,
+          rgba(255,255,255,0.05) 1px,
+          transparent 1px,
+          transparent 48px
+        );
+      padding: 0 0 1px;
+    }
+    .month-bar {
+      width: 100%;
+      min-height: 16px;
+      border-radius: 5px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.02) 28%, rgba(0,0,0,0.06)),
+        linear-gradient(180deg, #74b0ff, #4864d6);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .month-bar-label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .receipt-summary-grid { align-items: stretch !important; }
+    .receipt-summary-grid,
+    .receipt-detail-grid {
+      margin-bottom: 16px;
+    }
+    .receipt-summary-grid > .card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .mini-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .mini-link {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 0.74rem;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+    .mini-link:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    #receipt-summary-stores,
+    #receipt-summary-months {
+      flex: 1;
+    }
 
     @media (max-width: 900px) {
       .sidebar {
@@ -258,7 +358,8 @@
       .main { padding: 14px; padding-top: 82px; }
       .stats-grid,
       .form-grid,
-      #page-receipts > div,
+      #page-receipts > .receipt-summary-grid,
+      #page-receipts > .receipt-detail-grid,
       #page-dashboard > div[style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
       }
@@ -275,6 +376,8 @@
         bottom: 14px;
         max-width: none;
       }
+      .month-bars { gap: 12px; }
+      .month-bar-track { width: min(44px, 100%); height: 170px; }
     }
   </style>
 </head>
@@ -290,6 +393,7 @@
     <div class="nav-item" onclick="nav('products', this)"><span class="nav-icon">🏷️</span> Products</div>
     <div class="nav-item" onclick="nav('upload', this)"><span class="nav-icon">📸</span> Upload Receipt</div>
     <div class="nav-item" onclick="nav('receipts', this)"><span class="nav-icon">🧾</span> Receipts</div>
+    <div class="nav-item" onclick="nav('shopping', this)"><span class="nav-icon">🛒</span> Shopping List</div>
     <div class="nav-item" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
     <div class="nav-item" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
     <div class="nav-item" onclick="nav('recs', this)"><span class="nav-icon">💡</span> Recommendations</div>
@@ -363,7 +467,13 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-header"><span class="card-title">Current Inventory</span><button class="btn btn-ghost btn-sm" onclick="loadInventory()">🔄 Refresh</button></div>
+        <div class="card-header">
+          <span class="card-title">Current Inventory</span>
+          <div style="display:flex;gap:8px">
+            <input id="inv-search" placeholder="🔍 Search inventory…" style="width:220px" oninput="searchInventory()" />
+            <button class="btn btn-ghost btn-sm" onclick="loadInventory()">🔄 Refresh</button>
+          </div>
+        </div>
         <div class="table-wrap"><div id="inv-table-body"></div></div>
       </div>
     </div>
@@ -394,6 +504,38 @@
       </div>
     </div>
 
+    <div class="page" id="page-shopping">
+      <div class="page-header"><h1>Shopping List</h1><p>Track what you plan to buy next</p></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Add Item</span></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Name</label><input id="shop-name" placeholder="e.g. Milk" /></div>
+          <div class="form-group"><label>Category</label><input id="shop-category" placeholder="e.g. dairy" value="other" /></div>
+          <div class="form-group"><label>Quantity</label><input id="shop-qty" type="number" min="0" step="0.1" value="1" /></div>
+          <div class="form-group"><label>Note</label><input id="shop-note" placeholder="optional note" /></div>
+        </div>
+        <div style="margin-top:16px"><button class="btn btn-primary" onclick="createShoppingItem()">➕ Add to Shopping List</button></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-label">Open Items</div><div class="stat-value" id="shop-open-count">0</div><div class="stat-sub">still to buy</div></div>
+        <div class="stat-card success"><div class="stat-label">Purchased</div><div class="stat-value" id="shop-purchased-count">0</div><div class="stat-sub">already checked off</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Current List</span>
+          <div style="display:flex;gap:8px">
+            <select id="shop-status-filter" onchange="loadShoppingList()">
+              <option value="">All</option>
+              <option value="open" selected>Open</option>
+              <option value="purchased">Purchased</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadShoppingList()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div class="table-wrap"><div id="shopping-table-body"></div></div>
+      </div>
+    </div>
+
     <!-- Upload -->
     <div class="page" id="page-upload">
       <div class="page-header"><h1>Upload Receipt</h1><p>AI will extract items and update your inventory</p></div>
@@ -421,7 +563,38 @@
     <!-- Budget -->
     <div class="page" id="page-receipts">
       <div class="page-header"><h1>Receipts</h1><p>Review receipts sent from Telegram or uploaded directly</p></div>
-      <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:20px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Filters</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="loadReceipts()">Apply</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetReceiptFilters()">Reset</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Store</label><select id="receipt-filter-store"><option value="">All stores</option></select></div>
+          <div class="form-group"><label>Source</label><select id="receipt-filter-source"><option value="">All sources</option><option value="upload">Upload</option><option value="telegram">Telegram</option></select></div>
+          <div class="form-group"><label>Status</label><select id="receipt-filter-status"><option value="">All statuses</option></select></div>
+          <div class="form-group"><label>Purchase Date From</label><input id="receipt-filter-purchase-from" type="date" /></div>
+          <div class="form-group"><label>Purchase Date To</label><input id="receipt-filter-purchase-to" type="date" /></div>
+          <div class="form-group"><label>Upload Date From</label><input id="receipt-filter-upload-from" type="date" /></div>
+          <div class="form-group"><label>Upload Date To</label><input id="receipt-filter-upload-to" type="date" /></div>
+        </div>
+      </div>
+      <div class="stats-grid" id="receipt-summary-cards">
+        <div class="stat-card accent"><div class="stat-label">Total Receipts</div><div class="stat-value" id="receipt-total-count">—</div><div class="stat-sub">matching filters</div></div>
+      </div>
+      <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,3fr);gap:16px;align-items:start">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Receipts By Store</span></div>
+          <div id="receipt-summary-stores"><div class="empty-state"><p>No receipt summary yet.</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Purchases By Month</span></div>
+          <div id="receipt-summary-months"><div class="empty-state"><p>No purchase summary yet.</p></div></div>
+        </div>
+      </div>
+      <div class="receipt-detail-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px">
         <div class="card">
           <div class="card-header"><span class="card-title">Recent Receipts</span><button class="btn btn-ghost btn-sm" onclick="loadReceipts()">🔄</button></div>
           <div class="table-wrap"><div id="receipts-table-body"></div></div>
@@ -548,6 +721,9 @@ let receiptImageObjectUrl = null;
 let currentUser = null;
 let bootstrapEmail = 'admin@localhost';
 let householdUsers = [];
+let receiptFilterOptions = { stores: [], sources: [], statuses: [] };
+let selectedReceiptId = null;
+let inventorySearchQuery = '';
 
 function getInventoryItems(data) {
   return data?.items || data?.inventory || [];
@@ -606,6 +782,252 @@ function formatUserStatus(user) {
   return user?.is_active === false ? 'Inactive' : 'Active';
 }
 
+function tokenizeProductName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function titleizeWords(words = []) {
+  return words
+    .filter(Boolean)
+    .map(word => formatLabel(word, word))
+    .join(' ');
+}
+
+function getProductFamily(product) {
+  const category = String(product?.category || '').toLowerCase();
+  const rawTokens = tokenizeProductName(product?.name || '');
+  const aliasMap = {
+    ygrt: 'yogurt',
+    yoghurt: 'yogurt',
+    chkn: 'chicken',
+    ckn: 'chicken',
+    mozz: 'mozzarella',
+    moz: 'mozzarella',
+    org: '',
+    organic: '',
+    ks: '',
+    kirkland: '',
+    signature: '',
+    sig: '',
+    simple: '',
+    truth: '',
+    fresh: '',
+    natural: '',
+    ct: '',
+    lb: '',
+    lbs: '',
+    oz: '',
+    pk: '',
+    pkg: '',
+    pkgs: '',
+    pack: '',
+    packs: '',
+    bag: '',
+    bags: '',
+    item: '',
+    ct: '',
+    doz: '',
+    dozen: '',
+    pc: '',
+    pcs: '',
+    set: '',
+    root: '',
+  };
+  const stopwords = new Set([
+    'the', 'and', 'for', 'with', 'from', 'variety', 'sale', 'coupon',
+    'savings', 'instant', 'products', 'product', 'free', 'cage', 'young',
+    'farm', 'house', 'haus', 'delights', 'natural', 'fresh', 'brand',
+  ]);
+  const tokens = rawTokens
+    .map(token => aliasMap[token] !== undefined ? aliasMap[token] : token)
+    .filter(token => token && !stopwords.has(token) && !/^\d+$/.test(token) && !/^\d+[a-z]+$/.test(token));
+
+  const hasAny = (...needles) => needles.some(needle => tokens.includes(needle));
+  if (hasAny('discount', 'savings', 'coupon')) return 'Discounts & Savings';
+
+  const tokenSet = new Set(tokens);
+  const hasToken = (...needles) => needles.some(needle => tokenSet.has(needle));
+  const pickFirst = (...needles) => needles.find(needle => tokenSet.has(needle));
+
+  if (hasToken('milk')) {
+    const milkDescriptors = [];
+    const milkKinds = ['whole', 'almond', 'oat', 'soy', 'skim', 'protein', 'a2', 'coconut', 'chocolate', 'amul'];
+    milkKinds.forEach(kind => {
+      if (tokenSet.has(kind) && !milkDescriptors.includes(kind)) milkDescriptors.push(kind);
+    });
+    if (milkDescriptors.includes('a2') && milkDescriptors.includes('protein')) return 'A2 Protein Milk';
+    if (milkDescriptors.length) return `${titleizeWords(milkDescriptors)} Milk`;
+    return 'Milk';
+  }
+
+  if (hasToken('egg', 'eggs')) {
+    const eggStyle = [];
+    ['organic', 'brown', 'white'].forEach(kind => {
+      if (rawTokens.includes(kind) && !eggStyle.includes(kind)) eggStyle.push(kind);
+    });
+    return eggStyle.length ? `${titleizeWords(eggStyle)} Eggs` : 'Eggs';
+  }
+
+  if (hasToken('rice')) {
+    const riceType = pickFirst('basmati', 'jasmine', 'sona', 'ponni');
+    return riceType ? `${formatLabel(riceType, riceType)} Rice` : 'Rice';
+  }
+
+  if (hasToken('bread', 'brioche', 'bun', 'buns')) {
+    if (hasToken('brioche')) return hasToken('bun', 'buns') ? 'Brioche Buns' : 'Brioche Bread';
+    if (hasToken('cheese')) return 'Cheese Bread';
+    return 'Bread';
+  }
+
+  if (hasToken('apple', 'apples')) {
+    const appleType = pickFirst('fuji', 'gala', 'pink', 'lady', 'honeycrisp');
+    if (appleType === 'pink' && tokenSet.has('lady')) return 'Pink Lady Apples';
+    return appleType ? `${formatLabel(appleType, appleType)} Apples` : 'Apples';
+  }
+
+  if (hasToken('avocado', 'avocados')) return 'Avocados';
+  if (hasToken('tomato', 'tomatoes')) {
+    if (hasToken('cocktail')) return 'Cocktail Tomatoes';
+    if (hasToken('cherry', 'cherries')) return 'Cherry Tomatoes';
+    return 'Tomatoes';
+  }
+  if (hasToken('garlic')) return 'Garlic';
+  if (hasToken('ginger')) return 'Ginger';
+  if (hasToken('chicken')) {
+    if (hasToken('strip', 'strips')) return 'Chicken Strips';
+    if (hasToken('cube', 'cubes')) return 'Chicken Cubes';
+    return 'Chicken';
+  }
+  if (hasToken('almond', 'almonds')) return 'Almonds';
+  if (hasToken('walnut', 'walnuts')) return 'Walnuts';
+  if (hasToken('date', 'dates')) return 'Dates';
+  if (hasToken('muffin', 'muffins')) {
+    if (hasToken('choc', 'chip', 'chocolate')) return 'Chocolate Chip Muffins';
+    return 'Muffins';
+  }
+  if (hasToken('ghee')) return 'Ghee';
+  if (hasToken('oil')) return hasToken('olive') ? 'Olive Oil' : 'Oil';
+  if (hasToken('yogurt')) {
+    const yogurtBrand = pickFirst('chobani', 'siggi', 'dannon');
+    return yogurtBrand ? `${formatLabel(yogurtBrand, yogurtBrand)} Yogurt` : 'Yogurt';
+  }
+
+  const significant = tokens.filter(token => token.length > 2);
+  const familyTokens = significant.slice(0, Math.min(3, significant.length));
+  if (familyTokens.length) {
+    return familyTokens.map(token => formatLabel(token, token)).join(' ');
+  }
+
+  return formatLabel(product?.name || 'Other', 'Other');
+}
+
+function groupProducts(products) {
+  const groups = new Map();
+  products.forEach(product => {
+    const family = getProductFamily(product);
+    const key = `${String(product.category || 'other').toLowerCase()}::${family.toLowerCase()}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        family,
+        category: product.category || 'other',
+        items: [],
+      });
+    }
+    groups.get(key).items.push(product);
+  });
+
+  return [...groups.values()]
+    .map(group => ({
+      ...group,
+      count: group.items.length,
+      displayCategory: group.items.every(item => item.category === group.category) ? group.category : 'mixed',
+      examples: group.items.slice(0, 3).map(item => item.name),
+      items: group.items.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.family.localeCompare(b.family));
+}
+
+function getReceiptFilterParams() {
+  const params = new URLSearchParams();
+  const mappings = [
+    ['store', 'receipt-filter-store'],
+    ['source', 'receipt-filter-source'],
+    ['status', 'receipt-filter-status'],
+    ['purchase_date_from', 'receipt-filter-purchase-from'],
+    ['purchase_date_to', 'receipt-filter-purchase-to'],
+    ['upload_date_from', 'receipt-filter-upload-from'],
+    ['upload_date_to', 'receipt-filter-upload-to'],
+  ];
+  mappings.forEach(([key, id]) => {
+    const value = document.getElementById(id)?.value?.trim();
+    if (value) params.set(key, value);
+  });
+  return params.toString();
+}
+
+function populateReceiptFilterOptions(filters = {}) {
+  receiptFilterOptions = {
+    stores: filters.stores || [],
+    sources: filters.sources || ['upload', 'telegram'],
+    statuses: filters.statuses || [],
+  };
+
+  const populate = (id, values, placeholder) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = `<option value="">${placeholder}</option>` +
+      values.map(value => `<option value="${escHtml(value)}">${escHtml(formatLabel(value, value))}</option>`).join('');
+    if (values.includes(current)) select.value = current;
+  };
+
+  populate('receipt-filter-store', receiptFilterOptions.stores, 'All stores');
+  populate('receipt-filter-source', receiptFilterOptions.sources, 'All sources');
+  populate('receipt-filter-status', receiptFilterOptions.statuses, 'All statuses');
+}
+
+function renderReceiptSummaries(summary = {}) {
+  document.getElementById('receipt-total-count').textContent = summary.total_receipts ?? 0;
+
+  const storesEl = document.getElementById('receipt-summary-stores');
+  const stores = summary.receipts_by_store || [];
+  storesEl.innerHTML = stores.length ? `
+    <table>
+      <thead><tr><th>Store</th><th>Receipts</th></tr></thead>
+      <tbody>${stores.map(item => `<tr><td>${escHtml(item.store)}</td><td>${item.count}</td></tr>`).join('')}</tbody>
+    </table>` : '<div class="empty-state"><p>No store data for these filters.</p></div>';
+
+  const monthsEl = document.getElementById('receipt-summary-months');
+  const months = [...(summary.purchases_by_month || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const maxCount = Math.max(...months.map(item => item.count), 0);
+  if (!months.length) {
+    monthsEl.innerHTML = '<div class="empty-state"><p>No month data for these filters.</p></div>';
+    return;
+  }
+
+  monthsEl.innerHTML = `
+    <div class="month-chart">
+      <div class="month-bars">
+        ${months.map(item => {
+          const height = maxCount > 0 ? Math.max(16, (item.count / maxCount) * 188) : 16;
+          return `
+            <div class="month-bar-col">
+              <div class="month-bar-value">${item.count}</div>
+              <div class="month-bar-track">
+                <div class="month-bar" style="height:${height}px"></div>
+              </div>
+              <div class="month-bar-label">${escHtml(item.month)}</div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
 function getHeaders(includeJson = true) {
   const headers = {};
   if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`;
@@ -637,6 +1059,7 @@ function nav(page, el) {
   if (page === 'inventory') loadInventory();
   if (page === 'products') loadProducts();
   if (page === 'receipts') loadReceipts();
+  if (page === 'shopping') loadShoppingList();
   if (page === 'budget') { loadBudgetStatus(); setDefaultMonth(); }
   if (page === 'analytics') loadAnalytics();
   if (page === 'recs') loadRecs();
@@ -1056,8 +1479,27 @@ async function loadInventory() {
   const body = document.getElementById('inv-table-body');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load inventory.</p></div>'; return; }
   const data = await res.json();
-  const items = getInventoryItems(data);
-  if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
+  const allItems = getInventoryItems(data);
+  const query = inventorySearchQuery.trim().toLowerCase();
+  const items = query
+    ? allItems.filter(i => {
+        const haystack = [
+          i.product_name,
+          i.location,
+          i.quantity != null ? String(i.quantity) : '',
+          i.threshold != null ? String(i.threshold) : '',
+        ].join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+    : allItems;
+
+  const searchInput = document.getElementById('inv-search');
+  if (searchInput && searchInput.value !== inventorySearchQuery) {
+    searchInput.value = inventorySearchQuery;
+  }
+
+  if (!allItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
+  if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your search.</p></div>'; return; }
   body.innerHTML = `
     <table>
       <thead><tr><th>Product</th><th>Qty</th><th>Location</th><th>Threshold</th><th>Status</th><th>Actions</th></tr></thead>
@@ -1071,12 +1513,18 @@ async function loadInventory() {
             ? '<span class="badge badge-low">⚠️ Low</span>'
             : '<span class="badge badge-ok">✅ OK</span>'}</td>
           <td style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒</button>
             <button class="btn btn-sm btn-ghost" onclick="consumeItem(${i.id})">−1</button>
             <button class="btn btn-sm btn-danger" onclick="deleteInventoryItem(${i.id})">🗑</button>
           </td>
         </tr>`).join('')}
       </tbody>
     </table>`;
+}
+
+function searchInventory() {
+  inventorySearchQuery = document.getElementById('inv-search')?.value || '';
+  loadInventory();
 }
 
 async function addInventoryItem() {
@@ -1116,18 +1564,52 @@ async function loadProducts(query = '') {
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load products.</p></div>'; return; }
   const data = await res.json();
   const items = data.products || data.results || [];
-  document.getElementById('prod-count').textContent = data.total ?? items.length;
+  const groups = groupProducts(items);
+  document.getElementById('prod-count').textContent = `${groups.length} groups / ${data.total ?? items.length} items`;
   if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>'; return; }
   body.innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Category</th><th>Barcode</th><th>Added</th><th>Actions</th></tr></thead>
-      <tbody>${items.map(p => `
+      <thead><tr><th>Type</th><th>Category</th><th>Variants</th><th>Examples</th></tr></thead>
+      <tbody>${groups.map(group => `
         <tr>
-          <td><strong>${escHtml(p.name)}</strong></td>
-          <td><span class="badge badge-${normalizeBadge(p.category)}">${formatLabel(p.category, '—')}</span></td>
-          <td style="color:var(--muted);font-size:0.8rem">${p.barcode || '—'}</td>
-          <td style="color:var(--muted);font-size:0.8rem">${p.created_at ? p.created_at.split('T')[0] : '—'}</td>
-          <td><button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑</button></td>
+          <td><strong>${escHtml(group.family)}</strong></td>
+          <td><span class="badge badge-${normalizeBadge(group.displayCategory)}">${formatLabel(group.displayCategory, '—')}</span></td>
+          <td>
+            <details>
+              <summary style="cursor:pointer;color:var(--text)">${group.count} ${group.count === 1 ? 'item' : 'items'}</summary>
+              <div style="display:grid;gap:8px;margin-top:10px">
+                ${group.items.map(item => `
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+                    <div style="min-width:0;flex:1">
+                      <div style="font-weight:600">${escHtml(item.name)}</div>
+                      <div style="color:var(--muted);font-size:0.78rem">
+                        ${escHtml(formatLabel(item.category, 'Other'))}
+                        ${item.last_purchase_date ? ` · Purchased ${escHtml(item.last_purchase_date)}` : ''}
+                      </div>
+                      ${item.recent_receipts?.length ? `
+                        <div class="mini-links">
+                          ${item.recent_receipts.map(link => `
+                            <button
+                              class="mini-link"
+                              onclick="jumpToReceipt(${link.receipt_id})"
+                              title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
+                            >
+                              ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
+                            </button>
+                          `).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'product' })">🛒</button>
+                      <button class="btn btn-sm btn-ghost" onclick="editProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Edit</button>
+                      <button class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})">🗑</button>
+                    </div>
+                  </div>`).join('')}
+              </div>
+            </details>
+          </td>
+          <td style="color:var(--muted);font-size:0.82rem">${group.examples.map(example => escHtml(example)).join(', ')}</td>
         </tr>`).join('')}
       </tbody>
     </table>`;
@@ -1158,6 +1640,151 @@ async function deleteProduct(id) {
   if (!confirm('Delete this product?')) return;
   const res = await api(`/products/${id}`, { method: 'DELETE' });
   if (res.ok) { toast('Deleted ✅', 'success'); loadProducts(); }
+}
+
+async function editProduct(id, currentName) {
+  const name = prompt('Rename product', currentName || '');
+  if (name === null) return;
+  if (!name.trim()) {
+    toast('Product name cannot be blank', 'error');
+    return;
+  }
+
+  const res = await api(`/products/${id}/update`, {
+    method: 'PUT',
+    body: JSON.stringify({ name })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not rename product', 'error');
+    return;
+  }
+
+  toast(payload.merged ? 'Product renamed and merged ✅' : 'Product renamed ✅', 'success');
+  loadProducts(document.getElementById('prod-search').value.trim());
+}
+
+async function jumpToReceipt(id) {
+  selectedReceiptId = Number(id);
+  [
+    'receipt-filter-store',
+    'receipt-filter-source',
+    'receipt-filter-status',
+    'receipt-filter-purchase-from',
+    'receipt-filter-purchase-to',
+    'receipt-filter-upload-from',
+    'receipt-filter-upload-to',
+  ].forEach(filterId => {
+    const el = document.getElementById(filterId);
+    if (el) el.value = '';
+  });
+  const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
+  nav('receipts', receiptNav);
+  await loadReceipts();
+  await viewReceipt(Number(id));
+}
+
+// ============================================================
+// Shopping List
+// ============================================================
+async function quickAddToShoppingList(payload) {
+  const res = await api('/shopping-list/items', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not add to shopping list', 'error');
+    return;
+  }
+  toast(data.merged ? 'Updated shopping list quantity ✅' : 'Added to shopping list ✅', 'success');
+  if (document.getElementById('page-shopping').classList.contains('active')) {
+    loadShoppingList();
+  }
+}
+
+async function createShoppingItem() {
+  const name = document.getElementById('shop-name').value.trim();
+  if (!name) {
+    toast('Enter an item name', 'error');
+    return;
+  }
+  await quickAddToShoppingList({
+    name,
+    category: document.getElementById('shop-category').value.trim() || 'other',
+    quantity: parseFloat(document.getElementById('shop-qty').value) || 1,
+    note: document.getElementById('shop-note').value.trim(),
+    source: 'manual',
+  });
+  document.getElementById('shop-name').value = '';
+  document.getElementById('shop-category').value = 'other';
+  document.getElementById('shop-qty').value = '1';
+  document.getElementById('shop-note').value = '';
+}
+
+async function loadShoppingList() {
+  const status = document.getElementById('shop-status-filter')?.value || 'open';
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await api(`/shopping-list${query}`);
+  const body = document.getElementById('shopping-table-body');
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load shopping list.</p></div>';
+    return;
+  }
+  const data = await res.json();
+  document.getElementById('shop-open-count').textContent = data.open_count ?? 0;
+  document.getElementById('shop-purchased-count').textContent = data.purchased_count ?? 0;
+  const items = data.items || [];
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>No shopping list items yet.</p></div>';
+    return;
+  }
+  body.innerHTML = `
+    <table>
+      <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${items.map(item => `
+        <tr>
+          <td>
+            <strong>${escHtml(item.name)}</strong>
+            ${item.note ? `<div style="color:var(--muted);font-size:0.78rem;margin-top:4px">${escHtml(item.note)}</div>` : ''}
+          </td>
+          <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
+          <td>${item.quantity}</td>
+          <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
+          <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${item.id}, '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteShoppingItem(${item.id})">🗑</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function toggleShoppingItem(id, status) {
+  const res = await api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not update shopping list item', 'error');
+    return;
+  }
+  toast(status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅', 'success');
+  loadShoppingList();
+}
+
+async function deleteShoppingItem(id) {
+  if (!confirm('Delete this shopping list item?')) return;
+  const res = await api(`/shopping-list/items/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not delete shopping list item', 'error');
+    return;
+  }
+  toast('Shopping list item deleted ✅', 'success');
+  loadShoppingList();
 }
 
 // ============================================================
@@ -1235,10 +1862,13 @@ async function uploadReceipt() {
 // Receipts
 // ============================================================
 async function loadReceipts() {
-  const res = await api('/receipts');
+  const query = getReceiptFilterParams();
+  const res = await api(`/receipts${query ? `?${query}` : ''}`);
   const body = document.getElementById('receipts-table-body');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipts.</p></div>'; return; }
   const data = await res.json();
+  populateReceiptFilterOptions(data.filters || {});
+  renderReceiptSummaries(data.summary || {});
   const receipts = data.receipts || [];
   if (!receipts.length) {
     body.innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
@@ -1248,7 +1878,7 @@ async function loadReceipts() {
 
   body.innerHTML = `
     <table>
-      <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th></tr></thead>
+      <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th><th>Delete</th></tr></thead>
       <tbody>${receipts.map(r => `
         <tr>
           <td>${escHtml(r.date || '—')}</td>
@@ -1257,17 +1887,39 @@ async function loadReceipts() {
           <td>${formatLabel(r.source, 'Upload')}</td>
           <td><span class="badge badge-${r.status === 'processed' ? 'ok' : 'low'}">${escHtml(formatLabel(r.status, 'Unknown'))}</span></td>
           <td><button class="btn btn-sm btn-ghost" onclick="viewReceipt(${r.purchase_id || r.id})">Open</button></td>
+          <td><button class="btn btn-sm btn-danger" onclick="deleteReceipt(${r.purchase_id || r.id})">Delete</button></td>
         </tr>`).join('')}
       </tbody>
     </table>`;
 
-  const firstReceiptId = receipts[0].purchase_id || receipts[0].id;
-  if (firstReceiptId) {
-    viewReceipt(firstReceiptId);
+  const availableReceiptIds = receipts.map(r => Number(r.purchase_id || r.id)).filter(Boolean);
+  const targetReceiptId = availableReceiptIds.includes(Number(selectedReceiptId))
+    ? selectedReceiptId
+    : availableReceiptIds[0];
+  if (targetReceiptId) {
+    await viewReceipt(targetReceiptId);
   }
 }
 
+function resetReceiptFilters() {
+  [
+    'receipt-filter-store',
+    'receipt-filter-source',
+    'receipt-filter-status',
+    'receipt-filter-purchase-from',
+    'receipt-filter-purchase-to',
+    'receipt-filter-upload-from',
+    'receipt-filter-upload-to',
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  populateReceiptFilterOptions(receiptFilterOptions);
+  loadReceipts();
+}
+
 async function viewReceipt(id) {
+  selectedReceiptId = id;
   const res = await api(`/receipts/${id}`);
   const body = document.getElementById('receipt-detail-body');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipt details.</p></div>'; return; }
@@ -1338,11 +1990,19 @@ async function viewReceipt(id) {
         <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Edit the OCR JSON below, make sure store, date, total, and items are filled in, then save.</p>
         <textarea id="review-json-${receipt.id}" style="width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;color:var(--text);font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:0.82rem"></textarea>
       </div>` : ''}
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-danger" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button>
+      </div>
       <div style="color:var(--muted);font-size:0.82rem">Status: ${escHtml(formatLabel(receipt.status, 'Unknown'))} · Loaded ${formatDateTime(receipt.created_at, receipt.date || '—')}</div>
     </div>`;
 
   if (showReviewEditor) {
     document.getElementById(`review-json-${receipt.id}`).value = prettyJson(receipt.raw_ocr_data);
+  }
+
+  const detail = document.getElementById('receipt-detail-body');
+  if (detail && document.getElementById('page-receipts').classList.contains('active')) {
+    detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
@@ -1383,6 +2043,26 @@ async function approveReceipt(id) {
   toast('Receipt saved as a purchase ✅', 'success');
   await loadReceipts();
   await viewReceipt(id);
+}
+
+async function deleteReceipt(id) {
+  const confirmed = confirm('Delete this receipt? This will also remove any purchase data and inventory added from it.');
+  if (!confirmed) return;
+
+  const res = await api(`/receipts/${id}`, { method: 'DELETE' });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not delete receipt', 'error');
+    return;
+  }
+
+  document.getElementById('receipt-detail-body').innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div>';
+  toast('Receipt deleted ✅', 'success');
+  await loadReceipts();
+  await loadDashboard();
+  if (document.getElementById('page-inventory').classList.contains('active')) {
+    await loadInventory();
+  }
 }
 
 // Drag & drop
@@ -1489,6 +2169,9 @@ function recHtml(r) {
       <div class="rec-name">${escHtml(r.product_name)}</div>
       <div class="rec-msg">${escHtml(r.message)}</div>
       <div class="rec-conf">Confidence: ${((r.confidence||0)*100).toFixed(0)}%</div>
+      <div style="margin-top:8px">
+        <button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 Add to Shopping List</button>
+      </div>
     </div>
   </div>`;
 }

@@ -224,6 +224,28 @@ class Budget(Base):
     user = relationship("User", back_populates="budgets")
 
 
+class ShoppingListItem(Base):
+    __tablename__ = "shopping_list_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    name = Column(String(255), nullable=False)
+    category = Column(String(100), nullable=True)
+    quantity = Column(Float, nullable=False, default=1)
+    status = Column(String(20), nullable=False, default="open")  # open, purchased
+    source = Column(String(30), nullable=True)  # recommendation, inventory, product, manual
+    note = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_shopping_list_status", "status"),
+        Index("ix_shopping_list_user_id", "user_id"),
+        Index("ix_shopping_list_product_id", "product_id"),
+    )
+
+
 class TelegramReceipt(Base):
     __tablename__ = "telegram_receipts"
 

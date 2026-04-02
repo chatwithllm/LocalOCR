@@ -23,10 +23,15 @@
 - OCR fallback chain exists: Gemini → OpenAI → Ollama
 - Docker Compose is the primary intended runtime, with restart policies already configured for backend, MQTT, and Ollama
 - Product, inventory, analytics, budget, and recommendations endpoints are implemented
-- Web app tabs are implemented for dashboard, inventory, products, upload, receipts, budget, analytics, recommendations, and settings
+- Shopping list endpoints and web tab are implemented
+- Web app tabs are implemented for dashboard, inventory, products, upload, receipts, shopping list, budget, analytics, recommendations, and settings
 - Mobile navigation now uses an off-canvas menu instead of a permanently fixed sidebar
 - Receipt review/history is implemented in the web app, including extracted items plus image/PDF preview
 - Review receipts can persist raw OCR output, be reprocessed, and be approved from the web app
+- Product names are now normalized on save, and obvious case-only duplicates are merged
+- Store names are now normalized on save, and obvious case-only duplicates are merged
+- Products now show linked receipt shortcuts that jump directly to the selected receipt in the Receipts tab
+- Inventory tab now has live client-side search
 - Telegram webhook handler is implemented
 - Telegram confirmation step is implemented before OCR begins
 - Telegram webhook registration/status helper is implemented
@@ -48,10 +53,13 @@
 - mobile web layout:
   iPhone-sized screens now use a top bar + slide-out menu so content is not hidden behind the sidebar
 - Products tab: list, search, create, delete
-- Inventory tab: list, add, consume, delete
+- Products tab: grouped catalog view, rename/merge, linked receipt shortcuts
+- Inventory tab: list, add, consume, delete, search
 - Budget tab: set and read status
 - Analytics tab: loads and matches backend response shape
 - Recommendations tab: loads correctly
+- Shopping List tab: manual add, open/purchased status, delete
+- Add to Shopping List actions work from recommendations, products, and inventory
 - Upload Receipt tab: authenticated upload and OCR result rendering for images and PDFs
 - Receipts tab: receipt list, receipt detail, stored image preview, PDF viewer, review approval tools
 - Gemini OCR: direct smoke test and live upload path
@@ -73,6 +81,7 @@
 - Docker-first fresh-machine validation after the latest changes
 - Automated test coverage refresh
 - Alembic migration workflow
+- MQTT auth still needs to be fixed in the current local runtime (`Not authorized` in startup logs)
 
 ---
 
@@ -150,7 +159,10 @@ Every file in the project and what it does:
 | `extract_receipt_data.py` | Step 11 | ✅ Hybrid OCR pipeline working (includes PDF preprocessing + review workflow) |
 | `save_receipt_images.py` | Step 12 | 🟡 Storage helper exists; not the primary reviewed path |
 | `manage_product_catalog.py` | Step 13 | ✅ CRUD working |
+| `manage_shopping_list.py` | Shopping list | ✅ Shopping list API working |
 | `manage_inventory.py` | Step 14 | ✅ CRUD working |
+| `normalize_product_names.py` | Catalog cleanup | ✅ Product name canonicalization + duplicate merge helpers |
+| `normalize_store_names.py` | Store cleanup | ✅ Store name canonicalization + duplicate merge helpers |
 | `check_inventory_thresholds.py` | Step 15 | 🟡 Partial / not fully validated |
 | `generate_recommendations.py` | Step 16 | 🟡 Endpoint working, needs richer data validation |
 | `schedule_daily_recommendations.py` | Step 17 | 🟡 Scheduler present, not fully validated |
@@ -227,12 +239,14 @@ Use this to track implementation progress. Check off items as you go.
 ### Phase 4: Inventory Management *(parallel OK)*
 - [x] Step 13: Implement product CRUD
 - [x] Step 14: Implement inventory tracking + MQTT publish
+- [x] Inventory search in the web app
 - [ ] Step 15: Implement low-stock alerts
 - [x] Test: Add/consume items
 - [ ] Verify MQTT events in Home Assistant or broker consumer
 
 ### Phase 5: Smart Recommendations *(parallel OK)*
 - [x] Step 16: Implement recommendation engine
+- [x] Add direct "Add to Shopping List" action from recommendations
 - [ ] Step 17: Fully validate daily push scheduler
 - [ ] Test: Seed price data → verify deal detection
 
@@ -252,8 +266,18 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Add receipt image serving
 - [x] Add Receipts tab in web app
 - [x] Add review reprocess + approve actions
+- [x] Add product-to-receipt jump links that preserve the clicked receipt selection
 - [x] Test: Open receipt details and image in browser
 - [x] Test: Approve a review receipt from the web app
+
+### Phase 7.6: Shopping List & Data Cleanup
+- [x] Add shopping list DB table + API
+- [x] Add Shopping List tab in web app
+- [x] Add manual shopping-list item creation
+- [x] Add direct add-to-shopping-list actions from inventory, products, and recommendations
+- [x] Canonicalize product names on save and merge case-only duplicates in live data
+- [x] Canonicalize store names on save and merge case-only duplicates in live data
+- [ ] Add richer OCR cleanup rules for truncated names like `Tbrush` / `HBO W/Almnds`
 
 ### Phase 8: Backup & Portability
 - [ ] Step 23: Test backup script

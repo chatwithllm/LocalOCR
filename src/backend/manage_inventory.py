@@ -11,9 +11,11 @@ MQTT Topic: home/grocery/inventory/{product_id}
 
 import logging
 from flask import Blueprint, request, jsonify, g
+from sqlalchemy import func
 
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import Inventory, Product
+from src.backend.normalize_product_names import canonicalize_product_name, normalize_product_category
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +89,16 @@ def add_item():
         if not product:
             return jsonify({"error": f"Product {product_id} not found"}), 404
     else:
-        product = session.query(Product).filter_by(name=product_name).first()
+        product_name = canonicalize_product_name(product_name)
+        category = normalize_product_category(data.get("category", "other"))
+        product = (
+            session.query(Product)
+            .filter(func.lower(Product.name) == product_name.lower())
+            .filter(func.lower(func.coalesce(Product.category, "other")) == category)
+            .first()
+        )
         if not product:
-            product = Product(name=product_name, category=data.get("category", "other"))
+            product = Product(name=product_name, category=category)
             session.add(product)
             session.flush()
 
