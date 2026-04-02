@@ -457,9 +457,24 @@ Used for:
 - low-stock alerts
 - recommendations
 - Home Assistant updates
+- Home Assistant entity discovery via MQTT discovery topics
 
-Current restriction:
+Current state:
+- broker auth via username/password is working
+- publish flow is verified for inventory, recommendations, budget alerts, and low-stock alerts
+- Home Assistant discovery payloads are published automatically for supported entities
+
+Rules:
 - if MQTT auth fails, core web app should still run
+- background MQTT startup must only happen in the real serving process, not the Flask debug reloader parent
+- retained topics should be used for current-state entities like inventory and recommendations
+- non-retained topics should be used for alert-style events where appropriate
+
+Discovery topics to support:
+- `homeassistant/sensor/grocery_inventory_{product_id}/config`
+- `homeassistant/sensor/grocery_recommendations_count/config`
+- `homeassistant/sensor/grocery_budget_alert/config`
+- `homeassistant/sensor/grocery_low_stock_alert/config`
 
 ### Home Assistant
 
@@ -467,8 +482,10 @@ Purpose:
 - household dashboard and automation surface
 
 Current state:
-- supported conceptually and partially in config/docs
-- not yet the primary user-facing runtime compared to the web app
+- MQTT transport and Home Assistant-side validation are working
+- MQTT discovery support is implemented for core entity types
+- YAML/dashboard/automation coverage still needs broader validation and polish
+- the web app remains the primary day-to-day runtime, with Home Assistant acting as the real-time household surface
 
 ### Telegram
 
@@ -510,10 +527,13 @@ Optional:
 - `GEMINI_MODEL`
 - `OPENAI_API_KEY`
 - `OLLAMA_BASE_URL`
-- `MQTT_HOST`
+- `MQTT_BROKER`
 - `MQTT_PORT`
 - `MQTT_USERNAME`
 - `MQTT_PASSWORD`
+- `MQTT_CLIENT_ID`
+- `MQTT_DISCOVERY_ENABLED`
+- `HOME_ASSISTANT_DISCOVERY_PREFIX`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 
@@ -540,11 +560,11 @@ Database rules:
 
 ## 25. Known Current Restrictions
 
-- MQTT in the current local runtime is not yet authorized and needs credential validation
-- Home Assistant integration is not fully validated end to end
+- Home Assistant dashboard and automation behavior still need broader validation beyond the confirmed MQTT transport/discovery path
 - OCR still produces some truncated product labels that need smarter cleanup than case normalization alone
 - Telegram-to-local-user linking is not complete
 - automated end-to-end coverage is still lighter than manual verification
+- when running in Flask debug mode, background services must remain guarded so MQTT and schedulers do not start twice under the reloader
 
 ## 26. Build Checklist
 
