@@ -17,17 +17,46 @@ Topics:
 """
 
 import logging
+import json
+import os
 from datetime import datetime, timezone
 
-from src.backend.setup_mqtt_connection import publish_message, TOPICS
+from src.backend.setup_mqtt_connection import publish_message, publish_raw_message, TOPICS
 
 logger = logging.getLogger(__name__)
+
+DISCOVERY_PREFIX = os.getenv("HOME_ASSISTANT_DISCOVERY_PREFIX", "homeassistant").strip() or "homeassistant"
+DISCOVERY_ENABLED = os.getenv("MQTT_DISCOVERY_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+DEVICE = {
+    "identifiers": ["grocery_manager"],
+    "name": "Grocery Manager",
+    "manufacturer": "LocalOCR",
+    "model": "Household Inventory App",
+    "sw_version": "current",
+}
+
+
+def _publish_discovery(component: str, object_id: str, payload: dict):
+    if not DISCOVERY_ENABLED:
+        return
+    topic = f"{DISCOVERY_PREFIX}/{component}/{object_id}/config"
+    publish_raw_message(topic, json.dumps(payload), retain=True)
 
 
 def publish_inventory_update(product_id: int, name: str, quantity: float,
                               location: str, updated_by: str):
     """Publish an inventory state change."""
     topic = TOPICS["inventory"].format(product_id=product_id)
+    object_id = f"grocery_inventory_{product_id}"
+    _publish_discovery("sensor", object_id, {
+        "name": f"{name} Quantity",
+        "unique_id": object_id,
+        "state_topic": topic,
+        "value_template": "{{ value_json.quantity }}",
+        "json_attributes_topic": topic,
+        "icon": "mdi:package-variant",
+        "device": DEVICE,
+    })
     payload = {
         "product_id": product_id,
         "name": name,
@@ -43,6 +72,15 @@ def publish_low_stock_alert(product_id: int, product_name: str,
                              current_qty: float, threshold: float):
     """Publish a low-stock alert."""
     topic = TOPICS["low_stock"]
+    _publish_discovery("sensor", "grocery_low_stock_alert", {
+        "name": "Grocery Low Stock Alert",
+        "unique_id": "grocery_low_stock_alert",
+        "state_topic": topic,
+        "value_template": "{{ value_json.name }}",
+        "json_attributes_topic": topic,
+        "icon": "mdi:alert",
+        "device": DEVICE,
+    })
     payload = {
         "product_id": product_id,
         "name": product_name,
@@ -57,6 +95,16 @@ def publish_low_stock_alert(product_id: int, product_name: str,
 def publish_budget_alert(budget_amount: float, spent: float, percentage: float):
     """Publish a budget threshold alert."""
     topic = TOPICS["budget_alert"]
+    _publish_discovery("sensor", "grocery_budget_alert", {
+        "name": "Grocery Budget Alert",
+        "unique_id": "grocery_budget_alert",
+        "state_topic": topic,
+        "value_template": "{{ value_json.percentage }}",
+        "unit_of_measurement": "%",
+        "json_attributes_topic": topic,
+        "icon": "mdi:cash-alert",
+        "device": DEVICE,
+    })
     payload = {
         "budget_amount": budget_amount,
         "spent": spent,
@@ -70,6 +118,15 @@ def publish_budget_alert(budget_amount: float, spent: float, percentage: float):
 def publish_recommendations(recommendations: list):
     """Publish daily recommendations."""
     topic = TOPICS["recommendations"]
+    _publish_discovery("sensor", "grocery_recommendations_count", {
+        "name": "Grocery Recommendations",
+        "unique_id": "grocery_recommendations_count",
+        "state_topic": topic,
+        "value_template": "{{ value_json.count }}",
+        "json_attributes_topic": topic,
+        "icon": "mdi:lightbulb-on-outline",
+        "device": DEVICE,
+    })
     payload = {
         "recommendations": recommendations,
         "count": len(recommendations),

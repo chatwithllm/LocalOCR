@@ -257,19 +257,27 @@ def create_app():
     def health():
         return jsonify({"status": "healthy", "service": "grocery-backend"}), 200
 
-    # Initialize MQTT connection
-    try:
-        from src.backend.setup_mqtt_connection import setup_mqtt_connection
-        setup_mqtt_connection()
-    except Exception as e:
-        logger.warning(f"MQTT connection failed (will retry): {e}")
+    should_start_background_services = (
+        os.getenv("FLASK_DEBUG", "0") != "1"
+        or os.getenv("WERKZEUG_RUN_MAIN") == "true"
+    )
 
-    # Start schedulers
-    try:
-        from src.backend.schedule_daily_recommendations import start_recommendation_scheduler
-        start_recommendation_scheduler()
-    except Exception as e:
-        logger.warning(f"Recommendation scheduler failed to start: {e}")
+    if should_start_background_services:
+        # Initialize MQTT connection
+        try:
+            from src.backend.setup_mqtt_connection import setup_mqtt_connection
+            setup_mqtt_connection()
+        except Exception as e:
+            logger.warning(f"MQTT connection failed (will retry): {e}")
+
+        # Start schedulers
+        try:
+            from src.backend.schedule_daily_recommendations import start_recommendation_scheduler
+            start_recommendation_scheduler()
+        except Exception as e:
+            logger.warning(f"Recommendation scheduler failed to start: {e}")
+    else:
+        logger.info("Skipping MQTT and schedulers in the Flask reloader parent process.")
 
     logger.info("Flask application created successfully.")
     return app

@@ -59,6 +59,12 @@ These flows were manually verified in the current environment:
   verified end to end from the real bot chat, including confirm-before-process
 - Verified real PDF extraction result:
   `COSTCO WHOLESALE`, `2026-03-30`, total `478.42`, `36` items, classified as `grocery`
+- MQTT broker auth:
+  verified with configured username/password on the live broker
+- MQTT publish flow:
+  verified for inventory updates, recommendations, budget alerts, and low-stock alerts
+- Home Assistant MQTT side:
+  validated successfully with the current broker setup
 
 ## Completed Implementation Areas
 
@@ -104,7 +110,6 @@ These areas exist but are not fully validated or fully complete:
 
 - Nginx Proxy Manager / public webhook routing
 - Home Assistant dashboard and automations
-- MQTT end-to-end validation in a real Home Assistant setup
 - Daily recommendation scheduler validation
 - Backup and restore validation on a clean machine
 - Alembic migration workflow
@@ -119,10 +124,10 @@ These areas exist but are not fully validated or fully complete:
 
 - The app has working manual smoke coverage, but not a recent full automated verification run
 - Some modules are still more “implemented enough for use” than “fully polished”
-- The Home Assistant configuration files are present, but not validated as part of the latest work
+- The Home Assistant configuration files are present, but the YAML/dashboard layer still needs broader validation
 - PDF conversion depends on `pdftoppm` being present; Docker now installs it, and local hosts need Poppler installed too
 - Dense PDFs may still produce imperfect product names/categories even when summary fields are now recovered correctly
-- The current local runtime is logging MQTT auth failures (`Not authorized`), so MQTT-connected features still need credential validation
+- Flask debug mode requires guarding background integrations so MQTT/schedulers do not start twice in the reloader parent process
 
 ## Recommended Next Steps
 
@@ -131,9 +136,9 @@ These areas exist but are not fully validated or fully complete:
 3. Add Telegram-to-user account linking so Telegram uploads are attributed automatically
 4. Add a self-service password change flow for logged-in users
 5. Run the receipt upload flow against Gemini on the fresh environment
-6. Validate MQTT publishing with a real broker/Home Assistant consumer
-7. Test the Telegram confirmation flow with a real photo receipt
-8. Add or refresh automated tests for products, inventory, upload, analytics, shopping list, and auth
+6. Test the Telegram confirmation flow with a real photo receipt
+7. Add or refresh automated tests for products, inventory, upload, analytics, shopping list, and auth
+8. Expand Home Assistant dashboard and automation validation beyond MQTT transport itself
 
 ## Fresh Start Checklist
 

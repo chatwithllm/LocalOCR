@@ -36,20 +36,50 @@ TOPICS = {
 # ---------------------------------------------------------------------------
 
 _client = None
+_intentional_disconnect = False
 
 
-def _on_connect(client, userdata, flags, rc, properties=None):
+def _reason_code_value(reason_code):
+    """Normalize paho v5 reason codes into a comparable/loggable value."""
+    if reason_code is None:
+        return 0
+
+    for attr in ("value", "_value"):
+        if hasattr(reason_code, attr):
+            raw = getattr(reason_code, attr)
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                pass
+
+    text = str(reason_code).strip()
+    if text.lower() in {"success", "normal disconnection"}:
+        return 0
+    try:
+        return int(text)
+    except (TypeError, ValueError):
+        return text or "unknown"
+
+
+def _on_connect(client, userdata, flags, reason_code, properties=None):
     """Callback when connected to MQTT broker."""
-    if rc == 0:
+    code = _reason_code_value(reason_code)
+    if code == 0:
         logger.info("Connected to MQTT broker successfully.")
     else:
-        logger.error(f"MQTT connection failed with code: {rc}")
+        logger.error(f"MQTT connection failed with code: {code}")
 
 
-def _on_disconnect(client, userdata, rc, properties=None):
+def _on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
     """Callback when disconnected from MQTT broker."""
-    if rc != 0:
-        logger.warning(f"Unexpected MQTT disconnect (rc={rc}). Will auto-reconnect.")
+    global _intentional_disconnect
+    code = _reason_code_value(reason_code)
+    if _intentional_disconnect:
+        _intentional_disconnect = False
+        logger.info("MQTT client disconnected cleanly.")
+        return
+    if code != 0:
+        logger.warning(f"Unexpected MQTT disconnect (rc={code}). Will auto-reconnect.")
 
 
 def _on_message(client, userdata, msg):
@@ -73,10 +103,18 @@ def setup_mqtt_connection():
     password = os.getenv("MQTT_PASSWORD", "")
     client_id = os.getenv("MQTT_CLIENT_ID", "grocery-backend")
 
-    client = mqtt.Client(
-        client_id=client_id,
-        protocol=mqtt.MQTTv5
-    )
+    callback_api = getattr(mqtt, "CallbackAPIVersion", None)
+    if callback_api:
+        client = mqtt.Client(
+            callback_api_version=callback_api.VERSION2,
+            client_id=client_id,
+            protocol=mqtt.MQTTv5,
+        )
+    else:
+        client = mqtt.Client(
+            client_id=client_id,
+            protocol=mqtt.MQTTv5,
+        )
 
     # Callbacks
     client.on_connect = _on_connect
@@ -120,14 +158,25 @@ def publish_message(topic: str, payload: dict, retain: bool = True):
     return result
 
 
+def publish_raw_message(topic: str, payload: str, retain: bool = True):
+    """Publish a raw string payload without JSON mutation."""
+    client = get_mqtt_client()
+    result = client.publish(topic, payload, qos=1, retain=retain)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logger.debug(f"Published raw payload to {topic}")
+    else:
+        logger.error(f"Failed to publish raw payload to {topic}: rc={result.rc}")
+    return result
+
+
 def disconnect_mqtt():
     """Gracefully disconnect the MQTT client."""
-    global _client
+    global _client, _intentional_disconnect
     if _client:
+        _intentional_disconnect = True
         _client.loop_stop()
         _client.disconnect()
         _client = None
-        logger.info("MQTT client disconnected.")
 
 
 # ---------------------------------------------------------------------------

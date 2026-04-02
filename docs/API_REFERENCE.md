@@ -241,6 +241,17 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 ---
 
+### Shopping List
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/shopping-list?status=open` | Session or Bearer token | List shopping list items |
+| POST | `/shopping-list/items` | Session or Bearer token | Add a shopping list item |
+| PUT | `/shopping-list/items/{id}` | Session or Bearer token | Update shopping list item details or status |
+| DELETE | `/shopping-list/items/{id}` | Session or Bearer token | Delete a shopping list item |
+
+---
+
 ## MQTT Topics
 
 | Topic | Direction | Payload |
@@ -249,6 +260,22 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 | `home/grocery/alerts/low_stock` | Backend → HA | `{product_id, name, current, threshold, alert_type}` |
 | `home/grocery/alerts/budget` | Backend → HA | `{budget_amount, spent, percentage, alert_type}` |
 | `home/grocery/recommendations/daily` | Backend → HA | `{recommendations: [...], count, timestamp}` |
+
+### Home Assistant Discovery Topics
+
+The app also publishes MQTT discovery config payloads for Home Assistant auto-discovery.
+
+| Topic | Purpose |
+|-------|---------|
+| `homeassistant/sensor/grocery_inventory_{product_id}/config` | Per-product inventory quantity sensor |
+| `homeassistant/sensor/grocery_recommendations_count/config` | Recommendations count sensor |
+| `homeassistant/sensor/grocery_budget_alert/config` | Budget alert sensor |
+| `homeassistant/sensor/grocery_low_stock_alert/config` | Low-stock alert sensor |
+
+Related env vars:
+
+- `MQTT_DISCOVERY_ENABLED`
+- `HOME_ASSISTANT_DISCOVERY_PREFIX`
 
 ---
 

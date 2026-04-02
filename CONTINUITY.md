@@ -69,19 +69,20 @@
   send PDF → bot asks for confirmation → process → Gemini extracts store/date/total/items → receipt saves as processed purchase
 - Verified sample Telegram PDF result:
   `COSTCO WHOLESALE`, date `2026-03-30`, total `478.42`, `36` receipt items, classified as `grocery`
+- MQTT broker auth is working with configured username/password credentials
+- MQTT publish smoke tests succeeded for inventory, recommendations, budget alerts, and low-stock alerts
+- Home Assistant-side MQTT validation completed successfully
 
 ### Pending / Not Fully Validated
 
 - End-to-end Telegram photo upload validation from the real bot chat
 - Home Assistant dashboard/automation validation
-- MQTT end-to-end validation with a consumer
 - Low-stock alert validation
 - Daily recommendation scheduler validation
 - Backup/restore validation on a clean machine
 - Docker-first fresh-machine validation after the latest changes
 - Automated test coverage refresh
 - Alembic migration workflow
-- MQTT auth still needs to be fixed in the current local runtime (`Not authorized` in startup logs)
 
 ---
 
@@ -243,7 +244,7 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Inventory search in the web app
 - [ ] Step 15: Implement low-stock alerts
 - [x] Test: Add/consume items
-- [ ] Verify MQTT events in Home Assistant or broker consumer
+- [x] Verify MQTT events in Home Assistant or broker consumer
 
 ### Phase 5: Smart Recommendations *(parallel OK)*
 - [x] Step 16: Implement recommendation engine
@@ -257,7 +258,7 @@ Use this to track implementation progress. Check off items as you go.
 - [ ] Test: Seed purchases → verify spending calculations
 
 ### Phase 7: Home Assistant
-- [ ] Step 20: Wire MQTT publisher to all modules
+- [x] Step 20: Wire MQTT publisher to all modules
 - [ ] Step 21: Build HA dashboard YAML
 - [ ] Step 22: Create HA automations
 - [ ] Test: Change inventory → see HA update
