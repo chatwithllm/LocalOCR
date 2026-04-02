@@ -37,6 +37,7 @@
 - Products now show linked receipt shortcuts that jump directly to the selected receipt in the Receipts tab
 - Inventory tab now has live client-side search, multi-category filtering, receipt shortcuts, and a mobile-friendly two-row action layout
 - Inventory and Products are now a single combined workspace with a toggle instead of separate top-level tabs
+- Main table-like views now support sort controls for common workflows
 - Telegram webhook handler is implemented
 - Telegram confirmation step is implemented before OCR begins
 - Telegram webhook registration/status helper is implemented
@@ -66,6 +67,7 @@
   toggle between active inventory and full catalog, with shared cleanup actions
 - Inventory workspace: list, add, consume, delete, search, category filters, receipt shortcuts
 - Products workspace: grouped catalog view, rename/merge, category tagging, linked receipt shortcuts
+- Dashboard stat cards: clickable shortcuts into products, inventory, low-stock, and budget workflows
 - Budget tab: set and read status
 - Analytics tab: loads and matches backend response shape
 - Shopping List tab: manual add, quick find, open/purchased/reopen status, delete, store grouping, and cost estimates

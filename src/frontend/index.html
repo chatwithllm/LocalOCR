@@ -284,6 +284,19 @@
       font-size: 1rem;
       font-weight: 700;
     }
+    .dashboard-stat-link {
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .dashboard-stat-link:hover {
+      transform: translateY(-1px);
+      border-color: rgba(108, 99, 255, 0.28);
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+    }
+    .dashboard-stat-link:focus-visible {
+      outline: 2px solid rgba(108, 99, 255, 0.6);
+      outline-offset: 2px;
+    }
     .dashboard-top-grid {
       display: grid;
       gap: 16px;
@@ -377,6 +390,21 @@
     .leaderboard-score-label {
       color: var(--muted);
       font-size: 0.72rem;
+    }
+    .table-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .table-toolbar label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .table-toolbar select {
+      min-width: 150px;
     }
     .leaderboard-footer {
       color: var(--muted);
@@ -1153,10 +1181,10 @@
         </div>
       </div>
       <div class="stats-grid" id="shopping-stats-row">
-        <div class="stat-card accent"><div class="stat-label">Total Products</div><div class="stat-value" id="stat-products">—</div><div class="stat-sub">in catalog</div></div>
-        <div class="stat-card success"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inv">—</div><div class="stat-sub">tracked</div></div>
-        <div class="stat-card warning"><div class="stat-label">Low Stock</div><div class="stat-value" id="stat-low">—</div><div class="stat-sub">need restocking</div></div>
-        <div class="stat-card"><div class="stat-label">Budget Used</div><div class="stat-value" id="stat-budget">—</div><div class="stat-sub" id="stat-budget-sub">this month</div></div>
+        <div class="stat-card accent dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('products')" onkeydown="handleDashboardStatKey(event, 'products')"><div class="stat-label">Total Products</div><div class="stat-value" id="stat-products">—</div><div class="stat-sub">in catalog</div></div>
+        <div class="stat-card success dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('inventory')" onkeydown="handleDashboardStatKey(event, 'inventory')"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inv">—</div><div class="stat-sub">tracked</div></div>
+        <div class="stat-card warning dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('low-stock')" onkeydown="handleDashboardStatKey(event, 'low-stock')"><div class="stat-label">Low Stock</div><div class="stat-value" id="stat-low">—</div><div class="stat-sub">need restocking</div></div>
+        <div class="stat-card dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('budget')" onkeydown="handleDashboardStatKey(event, 'budget')"><div class="stat-label">Budget Used</div><div class="stat-value" id="stat-budget">—</div><div class="stat-sub" id="stat-budget-sub">this month</div></div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -1207,8 +1235,16 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Current Inventory</span>
-            <div style="display:flex;gap:8px">
+            <div class="table-toolbar">
               <input id="inv-search" placeholder="🔍 Search inventory…" style="width:220px" oninput="searchInventory()" />
+              <label for="inv-sort">Sort</label>
+              <select id="inv-sort" onchange="setInventorySort(this.value)">
+                <option value="name_asc" selected>Name A-Z</option>
+                <option value="qty_desc">Qty high-low</option>
+                <option value="qty_asc">Qty low-high</option>
+                <option value="location_asc">Location</option>
+                <option value="low_first">Low first</option>
+              </select>
               <button class="btn btn-ghost btn-sm" onclick="loadInventory()">🔄 Refresh</button>
             </div>
           </div>
@@ -1233,8 +1269,15 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Catalog (<span id="prod-count">0</span>)</span>
-            <div style="display:flex;gap:8px">
+            <div class="table-toolbar">
               <input id="prod-search" placeholder="🔍 Search…" style="width:200px" oninput="searchProducts()" />
+              <label for="prod-sort">Sort</label>
+              <select id="prod-sort" onchange="setProductSort(this.value)">
+                <option value="name_asc" selected>Name A-Z</option>
+                <option value="category_asc">Category</option>
+                <option value="variants_desc">Most variants</option>
+                <option value="recent_desc">Recently purchased</option>
+              </select>
               <button class="btn btn-ghost btn-sm" onclick="loadProducts()">🔄</button>
             </div>
           </div>
@@ -1283,7 +1326,17 @@
       <div class="card" id="shopping-store-stops-card">
         <div class="card-header">
           <span class="card-title">Estimated Store Stops</span>
-          <button type="button" class="btn btn-ghost btn-sm" id="shopping-store-stops-toggle" onclick="toggleShoppingSection('store-stops')">Collapse</button>
+          <div class="table-toolbar">
+            <label for="shop-sort">Sort</label>
+            <select id="shop-sort" onchange="setShoppingSort(this.value)">
+              <option value="store_name_asc" selected>Store + name</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="category_asc">Category</option>
+              <option value="price_desc">Highest estimate</option>
+              <option value="qty_desc">Qty high-low</option>
+            </select>
+            <button type="button" class="btn btn-ghost btn-sm" id="shopping-store-stops-toggle" onclick="toggleShoppingSection('store-stops')">Collapse</button>
+          </div>
         </div>
         <div id="shopping-store-stops-body">
           <div id="shop-store-summary"><div class="empty-state"><p>No store estimate yet.</p></div></div>
@@ -1304,13 +1357,21 @@
       <div class="card" id="shopping-current-list-card">
         <div class="card-header">
           <span class="card-title">Current List</span>
-          <div style="display:flex;gap:8px" id="shopping-current-list-controls">
+          <div class="table-toolbar" id="shopping-current-list-controls">
             <button type="button" class="btn btn-ghost btn-sm" id="shopping-current-list-toggle" onclick="toggleShoppingSection('current-list')">Collapse</button>
             <input id="shop-search" placeholder="Search current shopping list..." style="width:220px" oninput="searchShoppingList()" />
             <select id="shop-status-filter" onchange="loadShoppingList()">
               <option value="" selected>All</option>
               <option value="open">Open</option>
               <option value="purchased">Purchased</option>
+            </select>
+            <label for="shop-sort-main">Sort</label>
+            <select id="shop-sort-main" onchange="setShoppingSort(this.value)">
+              <option value="store_name_asc" selected>Store + name</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="category_asc">Category</option>
+              <option value="price_desc">Highest estimate</option>
+              <option value="qty_desc">Qty high-low</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="loadShoppingList()">🔄 Refresh</button>
           </div>
@@ -1372,7 +1433,16 @@
       </div>
       <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,3fr);gap:16px;align-items:start">
         <div class="card">
-          <div class="card-header"><span class="card-title">Receipts By Store</span></div>
+          <div class="card-header">
+            <span class="card-title">Receipts By Store</span>
+            <div class="table-toolbar">
+              <label for="receipt-store-sort">Sort</label>
+              <select id="receipt-store-sort" onchange="setReceiptStoreSort(this.value)">
+                <option value="count_desc" selected>Most receipts</option>
+                <option value="store_asc">Store A-Z</option>
+              </select>
+            </div>
+          </div>
           <div id="receipt-summary-stores"><div class="empty-state"><p>No receipt summary yet.</p></div></div>
         </div>
         <div class="card">
@@ -1382,7 +1452,20 @@
       </div>
       <div class="receipt-detail-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px">
         <div class="card">
-          <div class="card-header"><span class="card-title">Recent Receipts</span><button class="btn btn-ghost btn-sm" onclick="loadReceipts()">🔄</button></div>
+          <div class="card-header">
+            <span class="card-title">Recent Receipts</span>
+            <div class="table-toolbar">
+              <label for="receipt-sort">Sort</label>
+              <select id="receipt-sort" onchange="setReceiptSort(this.value)">
+                <option value="date_desc" selected>Newest purchase</option>
+                <option value="date_asc">Oldest purchase</option>
+                <option value="total_desc">Highest total</option>
+                <option value="store_asc">Store A-Z</option>
+                <option value="status_asc">Status</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="loadReceipts()">🔄</button>
+            </div>
+          </div>
           <div class="table-wrap"><div id="receipts-table-body"></div></div>
         </div>
         <div class="card">
@@ -1415,10 +1498,19 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Spending Overview</span>
-          <select id="analytics-period" onchange="loadAnalytics()" style="width:150px">
-            <option value="monthly">Monthly</option>
-            <option value="weekly">Weekly</option>
-          </select>
+          <div class="table-toolbar">
+            <select id="analytics-period" onchange="loadAnalytics()" style="width:150px">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            <label for="analytics-sort">Sort</label>
+            <select id="analytics-sort" onchange="setAnalyticsSort(this.value)">
+              <option value="period_desc" selected>Newest period</option>
+              <option value="period_asc">Oldest period</option>
+              <option value="total_desc">Highest total</option>
+              <option value="count_desc">Most items</option>
+            </select>
+          </div>
         </div>
         <div id="analytics-body"><div class="empty-state"><div class="icon">📊</div><p>No spending data yet. Upload a receipt to get started.</p></div></div>
       </div>
@@ -1484,7 +1576,16 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">🏠 Household Users</span>
-          <button class="btn btn-ghost btn-sm" onclick="loadUsers()">🔄</button>
+          <div class="table-toolbar">
+            <label for="users-sort">Sort</label>
+            <select id="users-sort" onchange="setUsersSort(this.value)">
+              <option value="name_asc" selected>Name A-Z</option>
+              <option value="role_asc">Role</option>
+              <option value="status_asc">Status</option>
+              <option value="created_desc">Newest</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadUsers()">🔄</button>
+          </div>
         </div>
         <div id="user-admin-panel" style="display:none">
           <div class="form-grid">
@@ -1581,6 +1682,14 @@ let selectedReceiptId = null;
 let inventorySearchQuery = '';
 let inventoryCategoryFilters = new Set();
 let productCategoryFilters = new Set();
+let inventorySort = 'name_asc';
+let productSort = 'name_asc';
+let shoppingSort = 'store_name_asc';
+let receiptSort = 'date_desc';
+let receiptStoreSort = 'count_desc';
+let analyticsSort = 'period_desc';
+let usersSort = 'name_asc';
+let receiptItemSort = 'name_asc';
 let shoppingSearchQuery = '';
 let shoppingQuickQuery = '';
 let shoppingListCache = [];
@@ -1606,6 +1715,64 @@ let shoppingShareQrCache = null;
 let loginQrCache = null;
 let secretQrHoldTimer = null;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'other'];
+
+function compareText(a, b, direction = 'asc') {
+  const left = String(a ?? '').toLowerCase();
+  const right = String(b ?? '').toLowerCase();
+  return direction === 'desc' ? right.localeCompare(left) : left.localeCompare(right);
+}
+
+function compareNumber(a, b, direction = 'asc') {
+  const left = Number(a ?? 0);
+  const right = Number(b ?? 0);
+  return direction === 'desc' ? right - left : left - right;
+}
+
+function compareDateValue(a, b, direction = 'asc') {
+  const left = a ? new Date(a).getTime() : 0;
+  const right = b ? new Date(b).getTime() : 0;
+  return direction === 'desc' ? right - left : left - right;
+}
+
+function setInventorySort(value) {
+  inventorySort = value || 'name_asc';
+  loadInventory();
+}
+
+function setProductSort(value) {
+  productSort = value || 'name_asc';
+  loadProducts(document.getElementById('prod-search')?.value?.trim() || '');
+}
+
+function setShoppingSort(value) {
+  shoppingSort = value || 'store_name_asc';
+  renderShoppingListTable();
+}
+
+function setReceiptSort(value) {
+  receiptSort = value || 'date_desc';
+  loadReceipts();
+}
+
+function setReceiptStoreSort(value) {
+  receiptStoreSort = value || 'count_desc';
+  renderReceiptSummaries(latestReceiptSummary);
+}
+
+function setAnalyticsSort(value) {
+  analyticsSort = value || 'period_desc';
+  loadAnalytics();
+}
+
+function setUsersSort(value) {
+  usersSort = value || 'name_asc';
+  loadUsers();
+}
+
+function setReceiptItemSort(value) {
+  receiptItemSort = value || 'name_asc';
+  if (selectedReceiptId) viewReceipt(selectedReceiptId, { scroll: false });
+}
 
 function applyShoppingHelperMode() {
   if (!SHOPPING_HELPER_MODE) return;
@@ -2441,6 +2608,8 @@ function populateReceiptFilterOptions(filters = {}) {
 
 function renderReceiptSummaries(summary = {}) {
   latestReceiptSummary = summary || {};
+  const receiptStoreSortEl = document.getElementById('receipt-store-sort');
+  if (receiptStoreSortEl && receiptStoreSortEl.value !== receiptStoreSort) receiptStoreSortEl.value = receiptStoreSort;
   document.getElementById('receipt-total-count').textContent = summary.total_receipts ?? 0;
   document.getElementById('receipt-total-items').textContent = summary.total_items ?? 0;
   document.getElementById('receipt-unique-items').textContent = summary.unique_items ?? 0;
@@ -2452,7 +2621,12 @@ function renderReceiptSummaries(summary = {}) {
     : 'No item data yet.';
 
   const storesEl = document.getElementById('receipt-summary-stores');
-  const stores = summary.receipts_by_store || [];
+  const stores = [...(summary.receipts_by_store || [])];
+  if (receiptStoreSort === 'store_asc') {
+    stores.sort((a, b) => compareText(a.store, b.store, 'asc'));
+  } else {
+    stores.sort((a, b) => compareNumber(a.count, b.count, 'desc') || compareText(a.store, b.store, 'asc'));
+  }
   storesEl.innerHTML = stores.length ? `
     <table>
       <thead><tr><th>Store</th><th>Receipts</th></tr></thead>
@@ -2646,6 +2820,43 @@ function nav(page, el) {
       loadUsers();
       loadReviewQueue();
     }
+  }
+}
+
+function handleDashboardStatKey(event, target) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openDashboardStat(target);
+  }
+}
+
+function openDashboardStat(target) {
+  if (target === 'products') {
+    const inventoryNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Inventory'));
+    nav('products', inventoryNav);
+    setCatalogMode('products', { load: true });
+    document.getElementById('prod-search')?.focus();
+    return;
+  }
+  if (target === 'inventory') {
+    const inventoryNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Inventory'));
+    nav('inventory', inventoryNav);
+    setCatalogMode('inventory', { load: true });
+    document.getElementById('inv-search')?.focus();
+    return;
+  }
+  if (target === 'low-stock') {
+    const inventoryNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Inventory'));
+    inventorySort = 'low_first';
+    nav('inventory', inventoryNav);
+    setCatalogMode('inventory', { load: true });
+    document.getElementById('inv-sort').value = 'low_first';
+    return;
+  }
+  if (target === 'budget') {
+    const budgetNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Budget'));
+    nav('budget', budgetNav);
+    setTimeout(() => document.getElementById('budget-amt')?.focus(), 0);
   }
 }
 
@@ -2926,6 +3137,8 @@ async function loadUsers() {
   }
 
   panel.style.display = 'block';
+  const usersSortEl = document.getElementById('users-sort');
+  if (usersSortEl && usersSortEl.value !== usersSort) usersSortEl.value = usersSort;
   note.textContent = 'Create one login per household member so uploads and decisions are tracked by person.';
 
   const res = await api('/auth/users');
@@ -2935,7 +3148,13 @@ async function loadUsers() {
   }
 
   const data = await res.json();
-  householdUsers = data.users || [];
+  householdUsers = [...(data.users || [])];
+  householdUsers.sort((a, b) => {
+    if (usersSort === 'created_desc') return compareDateValue(a.created_at, b.created_at, 'desc') || compareText(a.name, b.name, 'asc');
+    if (usersSort === 'role_asc') return compareText(a.role, b.role, 'asc') || compareText(a.name, b.name, 'asc');
+    if (usersSort === 'status_asc') return compareText(formatUserStatus(a), formatUserStatus(b), 'asc') || compareText(a.name, b.name, 'asc');
+    return compareText(a.name, b.name, 'asc');
+  });
   if (!householdUsers.length) {
     body.innerHTML = '<div class="empty-state"><div class="icon">👤</div><p>No household users yet. Add one above.</p></div>';
     return;
@@ -3387,11 +3606,24 @@ async function loadInventory() {
   const filteredItems = inventoryCategoryFilters.size
     ? items.filter(i => inventoryCategoryFilters.has(String(i.category || '').toLowerCase()))
     : items;
+  filteredItems.sort((a, b) => {
+    if (inventorySort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(a.product_name, b.product_name, 'asc');
+    if (inventorySort === 'qty_asc') return compareNumber(a.quantity, b.quantity, 'asc') || compareText(a.product_name, b.product_name, 'asc');
+    if (inventorySort === 'location_asc') return compareText(a.location, b.location, 'asc') || compareText(a.product_name, b.product_name, 'asc');
+    if (inventorySort === 'low_first') {
+      const left = (a.manual_low || a.is_low) ? 1 : 0;
+      const right = (b.manual_low || b.is_low) ? 1 : 0;
+      return compareNumber(left, right, 'desc') || compareText(a.product_name, b.product_name, 'asc');
+    }
+    return compareText(a.product_name, b.product_name, 'asc');
+  });
 
   const searchInput = document.getElementById('inv-search');
   if (searchInput && searchInput.value !== inventorySearchQuery) {
     searchInput.value = inventorySearchQuery;
   }
+  const inventorySortEl = document.getElementById('inv-sort');
+  if (inventorySortEl && inventorySortEl.value !== inventorySort) inventorySortEl.value = inventorySort;
   if (!allItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
   if (!filteredItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>'; return; }
   if (window.innerWidth <= 640) {
@@ -3698,7 +3930,19 @@ async function loadProducts(query = '') {
   const items = productCategoryFilters.size
     ? allItems.filter(item => productCategoryFilters.has(String(item.category || '').toLowerCase()))
     : allItems;
+  const productSortEl = document.getElementById('prod-sort');
+  if (productSortEl && productSortEl.value !== productSort) productSortEl.value = productSort;
   const groups = groupProducts(items);
+  groups.sort((a, b) => {
+    if (productSort === 'variants_desc') return compareNumber(a.count, b.count, 'desc') || compareText(a.family, b.family, 'asc');
+    if (productSort === 'category_asc') return compareText(a.displayCategory, b.displayCategory, 'asc') || compareText(a.family, b.family, 'asc');
+    if (productSort === 'recent_desc') {
+      const left = a.items.reduce((latest, item) => item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest, '');
+      const right = b.items.reduce((latest, item) => item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest, '');
+      return compareDateValue(left, right, 'desc') || compareText(a.family, b.family, 'asc');
+    }
+    return compareText(a.family, b.family, 'asc');
+  });
   document.getElementById('prod-count').textContent = `${groups.length} groups / ${items.length} items`;
   if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>'; return; }
   body.innerHTML = `
@@ -4080,8 +4324,23 @@ function renderShoppingListTable() {
     acc[key].push(item);
     return acc;
   }, {});
-  const renderStoreTables = (groups, options = {}) => groups
-    .sort(([a], [b]) => a.localeCompare(b))
+  const sortShoppingItems = list => [...list].sort((a, b) => {
+    if (shoppingSort === 'name_asc') return compareText(a.name, b.name, 'asc');
+    if (shoppingSort === 'category_asc') return compareText(a.category, b.category, 'asc') || compareText(a.name, b.name, 'asc');
+    if (shoppingSort === 'price_desc') return compareNumber((a.latest_price?.price || 0) * (a.quantity || 1), (b.latest_price?.price || 0) * (b.quantity || 1), 'desc') || compareText(a.name, b.name, 'asc');
+    if (shoppingSort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(a.name, b.name, 'asc');
+    return compareText(a.name, b.name, 'asc');
+  });
+  const sortShoppingGroups = groups => [...groups].sort(([a, aItems], [b, bItems]) => {
+    if (shoppingSort === 'store_name_asc') return compareText(a, b, 'asc');
+    if (shoppingSort === 'price_desc') {
+      const left = aItems.reduce((sum, item) => sum + ((item.latest_price?.price || 0) * (item.quantity || 1)), 0);
+      const right = bItems.reduce((sum, item) => sum + ((item.latest_price?.price || 0) * (item.quantity || 1)), 0);
+      return compareNumber(left, right, 'desc') || compareText(a, b, 'asc');
+    }
+    return compareText(a, b, 'asc');
+  });
+  const renderStoreTables = (groups, options = {}) => sortShoppingGroups(groups)
     .map(([storeName, storeItems]) => `
       <div class="card" style="margin-bottom:16px;${options.dimmed ? 'opacity:0.92;' : ''}">
         <div class="card-header">
@@ -4091,7 +4350,7 @@ function renderShoppingListTable() {
         <div class="table-wrap">
           <table>
             <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>${storeItems.map(item => `
+            <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td>
                   <strong>${escHtml(item.name)}</strong>
@@ -4132,8 +4391,7 @@ function renderShoppingListTable() {
     body.innerHTML = `
       <div class="helper-list">
         ${openGroups.length ? '<div class="helper-section-label">To Buy</div>' : ''}
-        ${openGroups
-          .sort(([a], [b]) => a.localeCompare(b))
+        ${sortShoppingGroups(openGroups)
           .map(([storeName, storeItems]) => `
             <div class="helper-store-card">
               <div class="helper-store-head">
@@ -4141,7 +4399,7 @@ function renderShoppingListTable() {
                 <span class="badge badge-${storeName === 'Unassigned' ? 'warning' : 'info'}">${storeItems.length} item${storeItems.length === 1 ? '' : 's'}</span>
               </div>
               <div class="helper-item-list">
-                ${storeItems.map(item => `
+                ${sortShoppingItems(storeItems).map(item => `
                   <div class="helper-item">
                     <div class="helper-item-top">
                       <div style="min-width:0">
@@ -4161,8 +4419,7 @@ function renderShoppingListTable() {
             </div>
           `).join('')}
         ${purchasedGroups.length ? '<div class="helper-section-label" style="margin-top:4px">Recently Checked Off</div>' : ''}
-        ${purchasedGroups
-          .sort(([a], [b]) => a.localeCompare(b))
+        ${sortShoppingGroups(purchasedGroups)
           .map(([storeName, storeItems]) => `
             <div class="helper-store-card" style="opacity:0.92">
               <div class="helper-store-head">
@@ -4170,7 +4427,7 @@ function renderShoppingListTable() {
                 <span class="badge badge-ok">${storeItems.length} item${storeItems.length === 1 ? '' : 's'}</span>
               </div>
               <div class="helper-item-list">
-                ${storeItems.map(item => `
+                ${sortShoppingItems(storeItems).map(item => `
                   <div class="helper-item">
                     <div class="helper-item-top">
                       <div style="min-width:0">
@@ -4224,6 +4481,10 @@ async function loadShoppingList() {
   }
   const data = await res.json();
   shoppingListCache = data.items || [];
+  const shoppingSortMainEl = document.getElementById('shop-sort-main');
+  if (shoppingSortMainEl && shoppingSortMainEl.value !== shoppingSort) shoppingSortMainEl.value = shoppingSort;
+  const shoppingSortEl = document.getElementById('shop-sort');
+  if (shoppingSortEl && shoppingSortEl.value !== shoppingSort) shoppingSortEl.value = shoppingSort;
   shoppingStoreOptions = data.available_stores || [];
   populateShoppingStoreSelects();
   ['shop-open-count', 'shop-open-count-main'].forEach(id => {
@@ -4239,7 +4500,11 @@ async function loadShoppingList() {
     if (el) el.textContent = formatMoney(data.estimated_total_cost || 0);
   });
   if (storeSummary) {
-    const stores = data.suggested_stores || [];
+    const stores = [...(data.suggested_stores || [])];
+    stores.sort((a, b) => {
+      if (shoppingSort === 'price_desc') return compareNumber(a.estimated_total, b.estimated_total, 'desc') || compareText(a.store, b.store, 'asc');
+      return compareText(a.store, b.store, 'asc');
+    });
     storeSummary.innerHTML = stores.length ? `
       <div class="contrib-list">
         ${stores.map(store => `
@@ -4367,7 +4632,16 @@ async function loadReceipts() {
   const data = await res.json();
   populateReceiptFilterOptions(data.filters || {});
   renderReceiptSummaries(data.summary || {});
-  const receipts = data.receipts || [];
+  const receipts = [...(data.receipts || [])];
+  receipts.sort((a, b) => {
+    if (receiptSort === 'date_asc') return compareDateValue(a.date, b.date, 'asc') || compareText(a.store, b.store, 'asc');
+    if (receiptSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareDateValue(a.date, b.date, 'desc');
+    if (receiptSort === 'store_asc') return compareText(a.store, b.store, 'asc') || compareDateValue(a.date, b.date, 'desc');
+    if (receiptSort === 'status_asc') return compareText(a.status, b.status, 'asc') || compareDateValue(a.date, b.date, 'desc');
+    return compareDateValue(a.date, b.date, 'desc') || compareText(a.store, b.store, 'asc');
+  });
+  const receiptSortEl = document.getElementById('receipt-sort');
+  if (receiptSortEl && receiptSortEl.value !== receiptSort) receiptSortEl.value = receiptSort;
   if (!receipts.length) {
     body.innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
     document.getElementById('receipt-detail-body').innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div>';
@@ -4426,7 +4700,14 @@ async function viewReceipt(id, options = {}) {
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipt details.</p></div>'; return; }
   const receipt = await res.json();
   const rawItems = receipt.raw_ocr_data?.items || [];
-  const items = (receipt.items && receipt.items.length) ? receipt.items : rawItems;
+  const items = [...((receipt.items && receipt.items.length) ? receipt.items : rawItems)];
+  items.sort((a, b) => {
+    const leftName = a.product_name || a.name || '';
+    const rightName = b.product_name || b.name || '';
+    if (receiptItemSort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(leftName, rightName, 'asc');
+    if (receiptItemSort === 'price_desc') return compareNumber(a.unit_price, b.unit_price, 'desc') || compareText(leftName, rightName, 'asc');
+    return compareText(leftName, rightName, 'asc');
+  });
   let imageHtml = '<div class="empty-state"><p>No image available for this receipt.</p></div>';
   const canReprocess = !receipt.raw_ocr_data && ['review', 'failed', 'pending'].includes(receipt.status);
   const showReviewEditor = receipt.status === 'review' && receipt.raw_ocr_data;
@@ -4467,7 +4748,18 @@ async function viewReceipt(id, options = {}) {
       </div>
       <div>${imageHtml}</div>
       <div>
-        <div class="card-header" style="margin-bottom:12px"><span class="card-title">Extracted Items</span><span style="color:var(--muted);font-size:0.82rem">Confidence ${((receipt.confidence || 0) * 100).toFixed(0)}%</span></div>
+        <div class="card-header" style="margin-bottom:12px">
+          <span class="card-title">Extracted Items</span>
+          <div class="table-toolbar">
+            <label for="receipt-item-sort">Sort</label>
+            <select id="receipt-item-sort" onchange="setReceiptItemSort(this.value)">
+              <option value="name_asc" ${receiptItemSort === 'name_asc' ? 'selected' : ''}>Name A-Z</option>
+              <option value="qty_desc" ${receiptItemSort === 'qty_desc' ? 'selected' : ''}>Qty high-low</option>
+              <option value="price_desc" ${receiptItemSort === 'price_desc' ? 'selected' : ''}>Highest price</option>
+            </select>
+            <span style="color:var(--muted);font-size:0.82rem">Confidence ${((receipt.confidence || 0) * 100).toFixed(0)}%</span>
+          </div>
+        </div>
         ${items.length ? `
         <table>
           <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Engine</th><th>Actions</th></tr></thead>
@@ -4636,6 +4928,14 @@ async function loadAnalytics() {
   if (spendRes.ok) {
     const d = await spendRes.json();
     const periods = getSpendingPeriods(d);
+    periods.sort((a, b) => {
+      if (analyticsSort === 'period_asc') return compareText(a.period, b.period, 'asc');
+      if (analyticsSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareText(a.period, b.period, 'desc');
+      if (analyticsSort === 'count_desc') return compareNumber(a.count, b.count, 'desc') || compareText(a.period, b.period, 'desc');
+      return compareText(a.period, b.period, 'desc');
+    });
+    const analyticsSortEl = document.getElementById('analytics-sort');
+    if (analyticsSortEl && analyticsSortEl.value !== analyticsSort) analyticsSortEl.value = analyticsSort;
     body.innerHTML = periods.length ?
       `<table>
         <thead><tr><th>Period</th><th>Total</th><th>Items</th></tr></thead>

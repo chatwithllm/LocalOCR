@@ -262,6 +262,7 @@ Required summaries:
 UI rules:
 - purchases by month should remain a clean single-row chart on desktop
 - receipt jump links from Products must open the selected receipt, not the newest receipt
+- receipt list, receipt-store summary, and extracted-item views should support sorting
 
 Deletion rules:
 - deleting a processed receipt must also remove linked purchase data and reverse inventory changes from that receipt
@@ -283,6 +284,8 @@ Required cards:
 Rules:
 - low-stock widget must use the same inventory source as the Inventory tab
 - dashboard must tolerate empty states cleanly
+- summary stat cards should act as shortcuts into the corresponding workflow pages
+- budget card should open an editable budget surface rather than a dead summary
 
 ## 13. Inventory Tab Specification
 
@@ -307,6 +310,7 @@ Required fields:
 Search rules:
 - search should filter current list by name, location, quantity, or readable metadata
 - no-backend-search requirement; client-side filtering is acceptable
+- inventory should support lightweight sort controls for common views such as name, quantity, location, and low-first
 
 Actions:
 - consume one unit
@@ -351,6 +355,7 @@ Traceability rules:
 - linked receipt labels must use purchase date, not product creation date
 - inline cleanup actions should be consistent with the Inventory view
 - category list must include at least `apparel` and `grains`
+- products should support sort controls for common catalog views such as name, category, recency, and family size
 
 ## 15. Shopping List Tab Specification
 
@@ -399,6 +404,7 @@ Cross-tab actions:
 Safety / recovery rules:
 - bought items must remain reopenable so accidental check-offs can be undone
 - logged-in users and helper-mode users should both have a recovery path for mistaken `Bought` taps
+- shopping list and grouped store views should support lightweight sorting without breaking the grouping model
 
 Helper-share rules:
 - there must be a scoped shopping-helper share mode reachable by QR

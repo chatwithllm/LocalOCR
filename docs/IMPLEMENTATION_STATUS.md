@@ -13,6 +13,8 @@
 - Mobile navigation now collapses into a menu on smaller screens instead of leaving the sidebar fixed open
 - Shopping List tab is now available for manually tracked buy-later items
 - Contribution tab is now available to explain scoring, show recent score history, and highlight helpful actions users can take
+- Main table-like views now have sort controls so users can reorder receipts, inventory, products, shopping items, analytics, and household users
+- Dashboard summary cards now act like shortcuts into the relevant working pages instead of passive stats
 - Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
 - Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
 - PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
@@ -39,15 +41,15 @@ These flows were manually verified in the current environment:
 - Products tab:
   grouped list, search, create, delete, rename/merge, receipt shortcuts
 - Inventory tab:
-  list, add, consume, delete, search
+  list, add, consume, delete, search, sort, receipt shortcuts
 - Budget tab:
   set monthly budget, read budget status
 - Analytics tab:
-  frontend now matches the backend response shape
+  frontend now matches the backend response shape and supports client-side sort options
 - Recommendations tab:
   endpoint and UI load correctly; can be empty if there is not enough history; can add items to shopping list
 - Shopping List tab:
-  manual add, mark bought, reopen, delete
+  manual add, mark bought, reopen, delete, sort
 - Contribution tab:
   score summary, recent score history, scoring rules, and “ways to help right now”
 - Upload Receipt tab:
@@ -55,7 +57,7 @@ These flows were manually verified in the current environment:
 - Gemini OCR:
   verified directly and through the live upload path
 - Receipts tab:
-  supports image preview, PDF viewing, OCR re-run, and review approval
+  supports image preview, PDF viewing, OCR re-run, review approval, and sort controls
 - Product → Receipt jump:
   linked receipt pills now open the clicked receipt instead of the newest receipt
 - Telegram PDF flow:
