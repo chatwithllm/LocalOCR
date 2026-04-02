@@ -57,6 +57,8 @@ For a guided "fill in the placeholders and launch the app" setup, read [docs/APP
 
 For a current handoff snapshot of what is finished and what still needs work, see [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
+For a single, build-grade product document that describes every tab, workflow, rule, and implementation contract, read [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md).
+
 ## 📁 Project Structure
 
 ```
@@ -94,6 +96,7 @@ For a current handoff snapshot of what is finished and what still needs work, se
 | Document | Purpose |
 |----------|---------|
 | [PRD.md](PRD.md) | Product requirements & acceptance criteria |
+| [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md) | Full rebuild-grade product spec for tabs, workflows, rules, and implementation |
 | [PROMPT.md](PROMPT.md) | 24-step implementation guide |
 | [CONTINUITY.md](CONTINUITY.md) | Restart/resume project from any point |
 | [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md) | App-style first-run setup guide |

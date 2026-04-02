@@ -3,7 +3,7 @@
 > **Purpose:** If you need to restart this project from scratch, resume after a break,
 > or hand it off to someone else — this document has everything you need.
 
-> **Current status note:** The original planning checklist below is no longer the best source of truth for runtime status. For the latest verified working state and restart handoff, read [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) first.
+> **Current status note:** The original planning checklist below is no longer the best source of truth for runtime status. For the latest verified working state and restart handoff, read [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) first. For the full rebuild-grade product definition, read [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md).
 
 ---
 
@@ -193,6 +193,7 @@ Every file in the project and what it does:
 |------|---------|
 | `ARCHITECTURE.md` | System diagram + design decisions |
 | `API_REFERENCE.md` | All endpoints, auth, MQTT topics |
+| `COMPLETE_PRODUCT_SPEC.md` | Full rebuild-grade app spec for tabs, workflows, rules, and implementation |
 | `DEPLOYMENT_GUIDE.md` | Zero-to-running setup steps |
 | `IMPLEMENTATION_STATUS.md` | Current working state, restart handoff, and next steps |
 | `NGINX_PROXY_MANAGER_SETUP.md` | Telegram webhook routing |
@@ -305,19 +306,21 @@ docker-compose up -d
 
 ### Resuming after a break
 1. Read `docs/IMPLEMENTATION_STATUS.md`
-2. Read this file (`CONTINUITY.md`)
-3. Check the "Completed / Verified Working / Pending" snapshot at the top of this file
-4. Check the Phase Checklist (section 5) for current progress
-5. Open `PROMPT.md` and find the next unchecked step
-6. Each step has: file path, what to do, key considerations, testing
-7. Implement, test, check off
+2. Read `docs/COMPLETE_PRODUCT_SPEC.md`
+3. Read this file (`CONTINUITY.md`)
+4. Check the "Completed / Verified Working / Pending" snapshot at the top of this file
+5. Check the Phase Checklist (section 5) for current progress
+6. Open `PROMPT.md` and find the next unchecked step
+7. Each step has: file path, what to do, key considerations, testing
+8. Implement, test, check off
 
 ### Handing off to someone
 1. Share this repo
 2. Point them to `docs/IMPLEMENTATION_STATUS.md` first
-3. Then point them to `CONTINUITY.md`
-4. `PRD.md` explains the product and `PROMPT.md` explains the original implementation plan
-5. The continuity snapshot and phase checklist show the current state
+3. Then point them to `docs/COMPLETE_PRODUCT_SPEC.md`
+4. Then point them to `CONTINUITY.md`
+5. `PRD.md` explains the original product goals and `PROMPT.md` explains the original implementation plan
+6. The continuity snapshot and phase checklist show the current state
 
 ---
 
